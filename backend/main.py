@@ -6,8 +6,17 @@ import models
 from logger import logger
 from services.imap_service import connect_to_gmail, fetch_emails, parse_email
 from services.feature_extractor import extract_features, calculate_phishing_score
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create tables in the database
 Base.metadata.create_all(bind=engine)
