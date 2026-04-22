@@ -5,7 +5,7 @@ from database import engine, Base, SessionLocal
 from models import Email
 import models
 
-from services.imap_service import connect_to_gmail
+from services.imap_service import connect_to_gmail, fetch_emails, parse_email
 
 app = FastAPI()
 
@@ -38,3 +38,41 @@ def create_test_email(db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_email)
     return {"status": "Email saved", "id": new_email.id}
+
+@app.get("/fetch-emails")
+def fetch_emails_route():
+    imap = connect_to_gmail()
+    if not imap:
+        return {"error": "Could not connect to Gmail"}
+    
+    raw_emails = fetch_emails(imap)
+    imap.logout()
+    
+    parsed = []
+    for raw in raw_emails:
+        parsed.append(parse_email(raw))
+    
+    return {"status": "success", "emails": parsed}
+
+@app.post("/store-emails")
+def store_emails_route(db: Session = Depends(get_db)):
+    imap = connect_to_gmail()
+    if not imap:
+        return {"error": "Could not connect to Gmail"}
+    
+    raw_emails = fetch_emails(imap)
+    imap.logout()
+    
+    saved_count = 0
+    for raw in raw_emails:
+        parsed = parse_email(raw)
+        new_email = Email(
+            sender=parsed["sender"],
+            subject=parsed["subject"],
+            body=parsed["body"]
+        )
+        db.add(new_email)
+        saved_count += 1
+    
+    db.commit()
+    return {"status": "success", "emails_stored": saved_count}
