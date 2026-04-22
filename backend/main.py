@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
+from services.feature_extractor import extract_features, calculate_phishing_score 
 
 from database import engine, Base, SessionLocal
 from models import Email
@@ -76,3 +77,27 @@ def store_emails_route(db: Session = Depends(get_db)):
     
     db.commit()
     return {"status": "success", "emails_stored": saved_count}
+
+@app.get("/analyze-emails")
+def analyze_emails_route():
+    imap = connect_to_gmail()
+    if not imap:
+        return {"error": "Could not connect to Gmail"}
+    
+    raw_emails = fetch_emails(imap)
+    imap.logout()
+    
+    results = []
+    for raw in raw_emails:
+        parsed = parse_email(raw)
+        features = extract_features(parsed)
+        scoring = calculate_phishing_score(features)
+        results.append({
+            "subject": parsed["subject"],
+            "sender": parsed["sender"],
+            "features": features,
+            "risk_score": scoring["score"],
+            "verdict": scoring["verdict"]
+        })
+    
+    return {"status": "success", "emails": results}
