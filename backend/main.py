@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from services.feature_extractor import extract_features, calculate_phishing_score 
+from services.feature_extractor import extract_features, calculate_phishing_score
+from models import Email, AnalysisResult
 
 from database import engine, Base, SessionLocal
 from models import Email
@@ -67,12 +68,31 @@ def store_emails_route(db: Session = Depends(get_db)):
     saved_count = 0
     for raw in raw_emails:
         parsed = parse_email(raw)
+        features = extract_features(parsed)
+        scoring = calculate_phishing_score(features)
+        
         new_email = Email(
             sender=parsed["sender"],
+            recipient=parsed.get("recipient", None),
             subject=parsed["subject"],
-            body=parsed["body"]
+            body=parsed["body"],
+            date_received=parsed["date"],
+            is_quarantined=scoring["verdict"] == "Phishing"
         )
         db.add(new_email)
+        db.flush()
+
+        analysis = AnalysisResult(
+            email_id=new_email.id,
+            url_count=features["url_count"],
+            has_suspicious_url=features["has_suspicious_url"],
+            has_urgent_language=features["has_urgent_language"],
+            sender_domain=features["sender_domain"],
+            is_free_email=features["is_free_email"],
+            risk_score=scoring["score"],
+            verdict=scoring["verdict"]
+        )
+        db.add(analysis)
         saved_count += 1
     
     db.commit()
@@ -101,3 +121,20 @@ def analyze_emails_route():
         })
     
     return {"status": "success", "emails": results}
+
+@app.get("/emails")
+def get_emails(db: Session = Depends(get_db)):
+    emails = db.query(Email).all()
+    results = []
+    for email in emails:
+        analysis = db.query(AnalysisResult).filter(AnalysisResult.email_id == email.id).first()
+        results.append({
+            "id": email.id,
+            "sender": email.sender,
+            "subject": email.subject,
+            "date_received": email.date_received,
+            "is_quarantined": email.is_quarantined,
+            "risk_score": analysis.risk_score if analysis else None,
+            "verdict": analysis.verdict if analysis else None
+        })
+    return {"emails": results}
