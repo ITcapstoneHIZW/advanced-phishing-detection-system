@@ -4,6 +4,7 @@ import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import QuarantinePage from "./pages/QuarantinePage";
 import EmailDetailsPage from "./pages/EmailDetailsPage";
+import LinkEmailPage from "./pages/LinkEmailPage";
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
@@ -16,6 +17,15 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        <Route
+          path="/link-email"
+          element={
+            <ProtectedRoute>
+              <LinkEmailPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/dashboard"

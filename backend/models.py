@@ -3,10 +3,25 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    gmail_address = Column(String, nullable=True)
+    gmail_app_password = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    emails = relationship("Email", back_populates="user")
+
+
 class Email(Base):
     __tablename__ = "emails"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     sender = Column(String, nullable=True)
     recipient = Column(String, nullable=True)
     subject = Column(String, nullable=True)
@@ -17,7 +32,7 @@ class Email(Base):
     is_quarantined = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Link to analysis results
+    user = relationship("User", back_populates="emails")
     analysis = relationship("AnalysisResult", back_populates="email")
 
 
@@ -35,5 +50,4 @@ class AnalysisResult(Base):
     verdict = Column(String, nullable=True)
     analysed_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Link back to email
     email = relationship("Email", back_populates="analysis")

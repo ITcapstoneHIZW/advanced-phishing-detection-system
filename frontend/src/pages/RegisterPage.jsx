@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { registerUser } from "../api/emailService";
 
 function RegisterPage() {
   const navigate = useNavigate();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
     if (!name || !email || !password || !confirmPassword) {
@@ -33,21 +34,20 @@ function RegisterPage() {
       return;
     }
 
-    const existingUser = localStorage.getItem("registeredUser");
-
-    if (existingUser) {
-      const parsedUser = JSON.parse(existingUser);
-      if (parsedUser.email === email) {
-        setError("An account with this email already exists.");
-        return;
-      }
+    try {
+      setLoading(true);
+      setError("");
+      const data = await registerUser(name, email, password);
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("userEmail", data.user.email);
+      localStorage.setItem("userName", data.user.name);
+      navigate("/link-email");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    const newUser = { name, email, password };
-    localStorage.setItem("registeredUser", JSON.stringify(newUser));
-
-    alert("Account created successfully. Please log in.");
-    navigate("/");
   };
 
   return (
@@ -61,7 +61,7 @@ function RegisterPage() {
             <label style={labelStyle}>Full Name</label>
             <input
               type="text"
-              placeholder="Ivan Esparrago"
+              placeholder="John Smith"
               value={name}
               onChange={(e) => setName(e.target.value)}
               style={inputStyle}
@@ -72,7 +72,7 @@ function RegisterPage() {
             <label style={labelStyle}>Email</label>
             <input
               type="email"
-              placeholder="ivan@example.com"
+              placeholder="john@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={inputStyle}
@@ -103,8 +103,8 @@ function RegisterPage() {
 
           {error && <p style={errorStyle}>{error}</p>}
 
-          <button type="submit" style={primaryButtonStyle}>
-            Create Account
+          <button type="submit" style={primaryButtonStyle} disabled={loading}>
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 

@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { loginUser } from "../api/emailService";
 
 function LoginPage() {
   const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -16,32 +17,19 @@ function LoginPage() {
       return;
     }
 
-    if (email === "admin@example.com" && password === "password123") {
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userEmail", email);
-      localStorage.setItem("userName", "Admin");
+    try {
+      setLoading(true);
       setError("");
-      navigate("/dashboard");
-      return;
-    }
-
-    const savedUser = localStorage.getItem("registeredUser");
-
-    if (!savedUser) {
-      setError("No account found. Please create an account first.");
-      return;
-    }
-
-    const parsedUser = JSON.parse(savedUser);
-
-    if (email === parsedUser.email && password === parsedUser.password) {
+      const data = await loginUser(email, password);
+      localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userEmail", parsedUser.email);
-      localStorage.setItem("userName", parsedUser.name);
-      setError("");
+      localStorage.setItem("userEmail", data.user.email);
+      localStorage.setItem("userName", data.user.name);
       navigate("/dashboard");
-    } else {
-      setError("Invalid login credentials.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,23 +64,13 @@ function LoginPage() {
 
           {error && <p style={errorStyle}>{error}</p>}
 
-          <button type="submit" style={primaryButtonStyle}>
-            Login
+          <button type="submit" style={primaryButtonStyle} disabled={loading}>
+            {loading ? "Signing in..." : "Login"}
           </button>
         </form>
 
-        <div style={demoBoxStyle}>
-          <p style={{ margin: 0, fontWeight: "600" }}>Demo Account</p>
-          <p style={{ margin: "8px 0 0 0", fontSize: "14px" }}>
-            Email: <strong>admin@example.com</strong>
-          </p>
-          <p style={{ margin: "4px 0 0 0", fontSize: "14px" }}>
-            Password: <strong>password123</strong>
-          </p>
-        </div>
-
         <p style={footerTextStyle}>
-          Don’t have an account? <Link to="/register">Create one here</Link>
+          Don't have an account? <Link to="/register">Create one here</Link>
         </p>
       </div>
     </div>
@@ -166,14 +144,6 @@ const errorStyle = {
   color: "#dc2626",
   marginBottom: "14px",
   fontSize: "14px",
-};
-
-const demoBoxStyle = {
-  marginTop: "22px",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: "10px",
-  padding: "14px",
 };
 
 const footerTextStyle = {
