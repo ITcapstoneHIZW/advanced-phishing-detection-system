@@ -1,19 +1,23 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from database import engine, Base, SessionLocal
 from models import Email, AnalysisResult, User
 import models
 from logger import logger
-from services.imap_service import connect_to_gmail, fetch_emails, parse_email
 from services.feature_extractor import extract_features, calculate_phishing_score
 from fastapi.middleware.cors import CORSMiddleware
 from auth import (
     hash_password, create_access_token, authenticate_user,
     get_user_by_email, decode_access_token
 )
+from oauth_service import (
+    get_authorization_url, exchange_code_for_credentials,
+    get_user_info, fetch_emails_oauth
+)
 from pydantic import BaseModel
 from typing import Optional
-import imaplib
+import json
 
 app = FastAPI()
 
@@ -57,10 +61,6 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
-class LinkEmailRequest(BaseModel):
-    gmail_address: str
-    gmail_app_password: str
-
 # --- Auth endpoints ---
 @app.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
@@ -97,52 +97,69 @@ def get_me(current_user: User = Depends(get_current_user)):
         "name": current_user.name,
         "email": current_user.email,
         "gmail_address": current_user.gmail_address,
-        "has_gmail_linked": current_user.gmail_address is not None
+        "has_gmail_linked": current_user.gmail_credentials is not None
     }
 
-# --- Email linking ---
-@app.post("/link-email")
-def link_email(request: LinkEmailRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    logger.info(f"Linking email for user {current_user.email}")
-    # Test the credentials before saving
+# --- OAuth2 endpoints ---
+@app.get("/auth/gmail")
+def gmail_auth(current_user: User = Depends(get_current_user)):
+    auth_url, state = get_authorization_url()
+    return {"auth_url": auth_url, "state": state}
+
+@app.get("/auth/callback")
+def gmail_callback(code: str, state: str, db: Session = Depends(get_db)):
     try:
-        imap = imaplib.IMAP4_SSL("imap.gmail.com")
-        imap.login(request.gmail_address, request.gmail_app_password)
-        imap.logout()
+        credentials = exchange_code_for_credentials(code, state)
+        gmail_address = get_user_info(credentials)
+        
+        # Find user by gmail address or get from state
+        # For now redirect to frontend with credentials encoded
+        creds_json = json.dumps(credentials)
+        
+        # Redirect to frontend with success
+        frontend_url = f"http://localhost:5173/link-email?success=true&gmail={gmail_address}&creds={creds_json}"
+        return RedirectResponse(url=frontend_url)
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Could not connect to Gmail. Check your credentials.")
-    
-    current_user.gmail_address = request.gmail_address
-    current_user.gmail_app_password = request.gmail_app_password
+        logger.error(f"OAuth callback error: {e}")
+        return RedirectResponse(url="http://localhost:5173/link-email?error=true")
+
+@app.post("/auth/save-gmail")
+def save_gmail(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    current_user.gmail_address = data.get("gmail_address")
+    current_user.gmail_credentials = json.dumps(data.get("credentials"))
     db.commit()
-    logger.info(f"Gmail linked for user {current_user.email}")
-    return {"message": "Gmail account linked successfully"}
+    return {"message": "Gmail linked successfully"}
 
 # --- Email endpoints ---
 @app.post("/sync-emails")
 def sync_emails(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not current_user.gmail_address or not current_user.gmail_app_password:
+    if not current_user.gmail_credentials:
         raise HTTPException(status_code=400, detail="No Gmail account linked. Please link your Gmail first.")
-    
+
     logger.info(f"Syncing emails for user {current_user.email}")
-    try:
-        imap = imaplib.IMAP4_SSL("imap.gmail.com")
-        imap.login(current_user.gmail_address, current_user.gmail_app_password)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Could not connect to Gmail.")
     
-    raw_emails = fetch_emails(imap)
-    imap.logout()
+    try:
+        credentials_dict = json.loads(current_user.gmail_credentials)
+        raw_emails, updated_creds = fetch_emails_oauth(credentials_dict)
+        
+        # Update credentials in case token was refreshed
+        current_user.gmail_credentials = json.dumps(updated_creds)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Error syncing emails: {e}")
+        raise HTTPException(status_code=400, detail="Could not fetch emails from Gmail.")
 
     saved_count = 0
-    for raw in raw_emails:
-        parsed = parse_email(raw)
+    for parsed in raw_emails:
         features = extract_features(parsed)
         scoring = calculate_phishing_score(features)
         new_email = Email(
             user_id=current_user.id,
             sender=parsed["sender"],
-            recipient=parsed.get("recipient", None),
             subject=parsed["subject"],
             body=parsed["body"],
             date_received=parsed["date"],

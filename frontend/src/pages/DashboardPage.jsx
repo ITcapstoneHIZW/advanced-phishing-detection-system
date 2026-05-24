@@ -11,6 +11,7 @@ function DashboardPage() {
   const [syncMessage, setSyncMessage] = useState("");
 
   const userName = localStorage.getItem("userName") || "User";
+  const gmailLinked = localStorage.getItem("gmailLinked") === "true";
 
   const loadEmails = async () => {
     try {
@@ -37,7 +38,7 @@ function DashboardPage() {
       setSyncMessage(`✅ Synced ${result.emails_stored} new emails from Gmail.`);
       await loadEmails();
     } catch (err) {
-      setSyncMessage("❌ Sync failed. Check that Gmail credentials are set up in the backend.");
+      setSyncMessage("❌ Sync failed. Check that your Gmail account is linked.");
     } finally {
       setSyncing(false);
     }
@@ -47,10 +48,7 @@ function DashboardPage() {
   const quarantinedEmails = emails.filter((e) => e.is_quarantined).length;
   const highRiskEmails = emails.filter((e) => e.risk_score >= 7).length;
   const safeEmails = emails.filter((e) => e.verdict === "Safe").length;
-
-  const recentQuarantined = emails
-    .filter((e) => e.is_quarantined)
-    .slice(0, 3);
+  const recentQuarantined = emails.filter((e) => e.is_quarantined).slice(0, 3);
 
   return (
     <div style={pageWrapper}>
@@ -64,14 +62,32 @@ function DashboardPage() {
           </div>
 
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={handleSync} disabled={syncing} style={syncButtonStyle}>
-              {syncing ? "Syncing..." : "Sync Emails from Gmail"}
-            </button>
+            {gmailLinked ? (
+              <button onClick={handleSync} disabled={syncing} style={syncButtonStyle}>
+                {syncing ? "Syncing..." : "Sync Emails from Gmail"}
+              </button>
+            ) : (
+              <Link to="/link-email" style={syncButtonStyle}>
+                🔗 Link Your Gmail Account
+              </Link>
+            )}
             <Link to="/quarantine" style={actionLink}>
               View Quarantine List
             </Link>
           </div>
         </div>
+
+        {!gmailLinked && (
+          <div style={warningCard}>
+            <p style={{ margin: 0 }}>
+              ⚠️ You haven't linked a Gmail account yet.{" "}
+              <Link to="/link-email" style={{ color: "#92400e", fontWeight: "700" }}>
+                Link it here
+              </Link>{" "}
+              to start syncing and monitoring your emails.
+            </p>
+          </div>
+        )}
 
         {syncMessage && <p style={syncMsgStyle}>{syncMessage}</p>}
 
@@ -109,7 +125,11 @@ function DashboardPage() {
               <h3 style={sectionTitle}>Recent Quarantined Emails</h3>
 
               {recentQuarantined.length === 0 ? (
-                <p style={{ color: "#64748b" }}>No quarantined emails yet. Try syncing from Gmail.</p>
+                <p style={{ color: "#64748b" }}>
+                  {gmailLinked
+                    ? "No quarantined emails yet. Try syncing from Gmail."
+                    : "Link your Gmail account to start monitoring emails."}
+                </p>
               ) : (
                 <div style={tableWrapper}>
                   <table style={tableStyle}>
@@ -156,8 +176,9 @@ const headerRow = { display: "flex", justifyContent: "space-between", alignItems
 const pageTitle = { margin: 0, color: "#0f172a" };
 const pageSubtitle = { marginTop: "8px", color: "#64748b" };
 const actionLink = { background: "#0f172a", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: "10px", fontWeight: "600" };
-const syncButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "12px 16px", borderRadius: "10px", fontWeight: "600", cursor: "pointer" };
+const syncButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "12px 16px", borderRadius: "10px", fontWeight: "600", cursor: "pointer", textDecoration: "none", display: "inline-block" };
 const syncMsgStyle = { marginBottom: "16px", color: "#334155", fontWeight: "500" };
+const warningCard = { background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: "12px", padding: "16px", color: "#92400e", marginBottom: "16px" };
 const cardGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "24px" };
 const statCard = { background: "white", borderRadius: "14px", padding: "20px", boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)", border: "1px solid #e2e8f0" };
 const statLabel = { margin: 0, color: "#64748b", fontSize: "14px" };

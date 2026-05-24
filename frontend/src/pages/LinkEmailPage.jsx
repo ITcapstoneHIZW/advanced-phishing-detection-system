@@ -1,90 +1,123 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { linkGmail } from "../api/emailService";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+const BASE_URL = "http://localhost:8000";
 
 function LinkEmailPage() {
   const navigate = useNavigate();
-  const [gmailAddress, setGmailAddress] = useState("");
-  const [appPassword, setAppPassword] = useState("");
-  const [error, setError] = useState("");
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleLink = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const gmail = searchParams.get("gmail");
+    const creds = searchParams.get("creds");
+    const err = searchParams.get("error");
 
-    if (!gmailAddress || !appPassword) {
-      setError("Please fill in both fields.");
+    if (err) {
+      setError("Google sign in failed. Please try again.");
       return;
     }
 
+    if (success && gmail && creds) {
+      setSaving(true);
+      // Save the credentials to the backend
+      fetch(`${BASE_URL}/auth/save-gmail`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({
+          gmail_address: gmail,
+          credentials: JSON.parse(creds),
+        }),
+      })
+        .then((res) => res.json())
+        .then(() => {
+          localStorage.setItem("gmailLinked", "true");
+          localStorage.setItem("gmailAddress", gmail);
+          navigate("/dashboard");
+        })
+        .catch(() => {
+          setError("Failed to save Gmail credentials. Please try again.");
+          setSaving(false);
+        });
+    }
+  }, [searchParams, navigate]);
+
+  const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
       setError("");
-      await linkGmail(gmailAddress, appPassword);
-      navigate("/dashboard");
+      const response = await fetch(`${BASE_URL}/auth/gmail`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+      const data = await response.json();
+      // Redirect to Google's OAuth page
+      window.location.href = data.auth_url;
     } catch (err) {
-      setError(err.message);
-    } finally {
+      setError("Failed to initiate Google sign in. Please try again.");
       setLoading(false);
     }
   };
 
+  if (saving) {
+    return (
+      <div style={pageStyle}>
+        <div style={cardStyle}>
+          <div style={spinnerWrapper}>
+            <div style={spinnerStyle} />
+            <p style={{ color: "#64748b", marginTop: "16px" }}>
+              Linking your Gmail account...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={pageStyle}>
       <div style={cardStyle}>
-        <h1 style={titleStyle}>Link Your Gmail</h1>
+        <div style={iconWrapper}>📧</div>
+        <h1 style={titleStyle}>Link Your Email</h1>
         <p style={subtitleStyle}>
           Connect your Gmail account so we can monitor it for phishing attempts.
+          We only request read-only access to your emails.
         </p>
 
-        <div style={infoBox}>
-          <p style={{ margin: 0, fontWeight: "600" }}>📋 How to get an App Password</p>
-          <ol style={{ margin: "10px 0 0 0", paddingLeft: "18px", fontSize: "14px", lineHeight: "1.8" }}>
-            <li>Go to <strong>myaccount.google.com</strong></li>
-            <li>Click <strong>Security</strong></li>
-            <li>Enable <strong>2-Step Verification</strong></li>
-            <li>Search for <strong>App Passwords</strong></li>
-            <li>Generate one and paste it below</li>
-          </ol>
+        <div style={featuresBox}>
+          <p style={featureItem}>🔒 Read-only access — we never send emails on your behalf</p>
+          <p style={featureItem}>🔄 Revoke access anytime from your Google account</p>
+          <p style={featureItem}>🛡️ Credentials secured with OAuth2</p>
         </div>
 
-        <form onSubmit={handleLink}>
-          <div style={fieldWrapper}>
-            <label style={labelStyle}>Gmail Address</label>
-            <input
-              type="email"
-              placeholder="yourname@gmail.com"
-              value={gmailAddress}
-              onChange={(e) => setGmailAddress(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+        {error && <p style={errorStyle}>{error}</p>}
 
-          <div style={fieldWrapper}>
-            <label style={labelStyle}>App Password</label>
-            <input
-              type="password"
-              placeholder="16-character app password"
-              value={appPassword}
-              onChange={(e) => setAppPassword(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          style={googleButtonStyle}
+        >
+          <img
+            src="https://www.google.com/favicon.ico"
+            alt="Google"
+            style={{ width: "20px", height: "20px" }}
+          />
+          {loading ? "Redirecting to Google..." : "Sign in with Google"}
+        </button>
 
-          {error && <p style={errorStyle}>{error}</p>}
-
-          <button type="submit" style={primaryButtonStyle} disabled={loading}>
-            {loading ? "Connecting..." : "Link Gmail Account"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dashboard")}
-            style={skipButtonStyle}
-          >
-            Skip for now
-          </button>
-        </form>
+        <button
+          onClick={() => navigate("/dashboard")}
+          style={skipButtonStyle}
+        >
+          Skip for now
+        </button>
       </div>
     </div>
   );
@@ -106,60 +139,57 @@ const cardStyle = {
   padding: "32px",
   borderRadius: "16px",
   boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
+  textAlign: "center",
+};
+
+const iconWrapper = {
+  fontSize: "48px",
+  marginBottom: "16px",
 };
 
 const titleStyle = {
   margin: 0,
-  textAlign: "center",
   color: "#0f172a",
 };
 
 const subtitleStyle = {
-  textAlign: "center",
   color: "#64748b",
   marginTop: "10px",
-  marginBottom: "20px",
-};
-
-const infoBox = {
-  background: "#f0f9ff",
-  border: "1px solid #bae6fd",
-  borderRadius: "10px",
-  padding: "14px",
   marginBottom: "24px",
-  color: "#0369a1",
+  lineHeight: "1.6",
 };
 
-const fieldWrapper = {
-  marginBottom: "16px",
+const featuresBox = {
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: "10px",
+  padding: "16px",
+  marginBottom: "24px",
+  textAlign: "left",
 };
 
-const labelStyle = {
-  display: "block",
-  marginBottom: "6px",
-  fontWeight: "600",
+const featureItem = {
+  margin: "8px 0",
+  fontSize: "14px",
   color: "#334155",
 };
 
-const inputStyle = {
+const googleButtonStyle = {
   width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #cbd5e1",
-  fontSize: "14px",
-  boxSizing: "border-box",
-};
-
-const primaryButtonStyle = {
-  width: "100%",
-  padding: "12px",
-  background: "#0f172a",
-  color: "white",
-  border: "none",
+  padding: "14px",
+  background: "white",
+  color: "#334155",
+  border: "2px solid #e2e8f0",
   borderRadius: "10px",
   cursor: "pointer",
   fontWeight: "700",
-  marginBottom: "10px",
+  fontSize: "15px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "10px",
+  marginBottom: "12px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
 };
 
 const skipButtonStyle = {
@@ -171,6 +201,22 @@ const skipButtonStyle = {
   borderRadius: "10px",
   cursor: "pointer",
   fontWeight: "600",
+};
+
+const spinnerWrapper = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  padding: "40px 0",
+};
+
+const spinnerStyle = {
+  width: "40px",
+  height: "40px",
+  border: "4px solid #e2e8f0",
+  borderTop: "4px solid #2563eb",
+  borderRadius: "50%",
+  animation: "spin 0.8s linear infinite",
 };
 
 const errorStyle = {

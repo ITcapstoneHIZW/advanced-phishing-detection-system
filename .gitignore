@@ -208,3 +208,6 @@ __marimo__/
 
 # Backend Database
 backend/phishing.db
+
+# client secret json
+backend/client_secret.json
