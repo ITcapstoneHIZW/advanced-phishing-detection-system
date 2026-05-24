@@ -229,6 +229,61 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
     logger.info(f"Synced {saved_count} new emails for user {current_user.email}")
     return {"status": "success", "emails_stored": saved_count}
 
+# --- Email actions ---
+@app.post("/emails/{email_id}/release")
+def release_email(email_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    email = db.query(Email).filter(Email.id == email_id, Email.user_id == current_user.id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    email.is_quarantined = False
+    db.commit()
+    logger.info(f"Email {email_id} released by user {current_user.email}")
+    return {"message": "Email released successfully"}
+
+@app.delete("/emails/{email_id}")
+def delete_email(email_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    email = db.query(Email).filter(Email.id == email_id, Email.user_id == current_user.id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    db.query(AnalysisResult).filter(AnalysisResult.email_id == email_id).delete()
+    db.delete(email)
+    db.commit()
+    logger.info(f"Email {email_id} deleted by user {current_user.email}")
+    return {"message": "Email deleted successfully"}
+
+@app.post("/emails/{email_id}/feedback")
+def submit_feedback(email_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    email = db.query(Email).filter(Email.id == email_id, Email.user_id == current_user.id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    verdict = data.get("verdict")
+    if verdict not in ["Safe", "Phishing"]:
+        raise HTTPException(status_code=400, detail="Invalid verdict")
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.email_id == email_id).first()
+    if analysis:
+        analysis.verdict = verdict
+    email.is_quarantined = verdict == "Phishing"
+    db.commit()
+    logger.info(f"Feedback submitted for email {email_id}: {verdict}")
+    return {"message": f"Email marked as {verdict}"}
+
+@app.get("/emails/{email_id}")
+def get_email(email_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    email = db.query(Email).filter(Email.id == email_id, Email.user_id == current_user.id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.email_id == email_id).first()
+    return {
+        "id": email.id,
+        "sender": email.sender,
+        "subject": email.subject,
+        "body": email.body,
+        "date_received": email.date_received,
+        "is_quarantined": email.is_quarantined,
+        "risk_score": analysis.risk_score if analysis else None,
+        "verdict": analysis.verdict if analysis else None
+    }
+
 @app.get("/emails")
 def get_emails(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     logger.info(f"Fetching emails for user {current_user.email}")

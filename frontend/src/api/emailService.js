@@ -62,12 +62,11 @@ export async function getEmails() {
 }
 
 export async function getEmailById(id) {
-  const response = await fetch(`${BASE_URL}/emails`, {
+  const response = await fetch(`${BASE_URL}/emails/${id}`, {
     headers: authHeaders(),
   });
-  if (!response.ok) throw new Error("Failed to fetch emails");
-  const data = await response.json();
-  return data.emails.find((email) => email.id === Number(id)) || null;
+  if (!response.ok) throw new Error("Failed to fetch email");
+  return await response.json();
 }
 
 export async function syncEmails() {
@@ -79,5 +78,33 @@ export async function syncEmails() {
     const error = await response.json();
     throw new Error(error.detail || "Failed to sync emails");
   }
+  return await response.json();
+}
+
+export async function releaseEmail(id) {
+  const response = await fetch(`${BASE_URL}/emails/${id}/release`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to release email");
+  return await response.json();
+}
+
+export async function deleteEmail(id) {
+  const response = await fetch(`${BASE_URL}/emails/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to delete email");
+  return await response.json();
+}
+
+export async function submitFeedback(id, verdict) {
+  const response = await fetch(`${BASE_URL}/emails/${id}/feedback`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ verdict }),
+  });
+  if (!response.ok) throw new Error("Failed to submit feedback");
   return await response.json();
 }
