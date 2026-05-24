@@ -11,7 +11,9 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
     gmail_address = Column(String, nullable=True)
-    gmail_credentials = Column(Text, nullable=True)  # Stores OAuth2 credentials as JSON
+    gmail_app_password = Column(String, nullable=True)
+    gmail_credentials = Column(Text, nullable=True)
+    email_provider = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     emails = relationship("Email", back_populates="user")

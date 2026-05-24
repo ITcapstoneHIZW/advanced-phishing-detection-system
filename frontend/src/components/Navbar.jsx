@@ -12,6 +12,7 @@ function Navbar() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("gmailLinked");
     localStorage.removeItem("gmailAddress");
+    localStorage.removeItem("emailProvider");
     navigate("/");
   };
 
@@ -38,16 +39,8 @@ function Navbar() {
         }}
       >
         <h2 style={{ margin: 0, fontSize: "20px" }}>Phishing Detection System</h2>
-
-        <Link to="/dashboard" style={linkStyle}>
-          Dashboard
-        </Link>
-        <Link to="/quarantine" style={linkStyle}>
-          Quarantine
-        </Link>
-        <Link to="/link-email" style={linkStyle}>
-          Link Email
-        </Link>
+        <Link to="/dashboard" style={linkStyle}>Dashboard</Link>
+        <Link to="/quarantine" style={linkStyle}>Quarantine</Link>
       </div>
 
       <div
