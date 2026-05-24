@@ -9,6 +9,9 @@ function Navbar() {
     localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userName");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("gmailLinked");
+    localStorage.removeItem("gmailAddress");
     navigate("/");
   };
 
@@ -41,6 +44,9 @@ function Navbar() {
         </Link>
         <Link to="/quarantine" style={linkStyle}>
           Quarantine
+        </Link>
+        <Link to="/link-email" style={linkStyle}>
+          Link Email
         </Link>
       </div>
 
