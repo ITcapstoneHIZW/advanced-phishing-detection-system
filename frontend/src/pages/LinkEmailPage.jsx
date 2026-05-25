@@ -44,7 +44,7 @@ function LinkEmailPage() {
       })
         .then((res) => res.json())
         .then(() => {
-          localStorage.setItem("gmailLinked", "true");
+          localStorage.setItem("emailLinked", "true");
           localStorage.setItem("gmailAddress", gmail);
           localStorage.setItem("emailProvider", provider || "gmail");
           navigate("/dashboard");

@@ -10,13 +10,25 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
-    gmail_address = Column(String, nullable=True)
-    gmail_app_password = Column(String, nullable=True)
-    gmail_credentials = Column(Text, nullable=True)
-    email_provider = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    linked_emails = relationship("LinkedEmail", back_populates="user")
     emails = relationship("Email", back_populates="user")
+    sensitivity_configs = relationship("SensitivityConfig", back_populates="user")
+
+
+class LinkedEmail(Base):
+    __tablename__ = "linked_emails"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    email_address = Column(String, nullable=False)
+    provider = Column(String, nullable=False)
+    credentials = Column(Text, nullable=True)
+    linked_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="linked_emails")
+    emails = relationship("Email", back_populates="linked_email")
 
 
 class Email(Base):
@@ -24,6 +36,7 @@ class Email(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    linked_email_id = Column(Integer, ForeignKey("linked_emails.id"), nullable=True)
     sender = Column(String, nullable=True)
     recipient = Column(String, nullable=True)
     subject = Column(String, nullable=True)
@@ -35,6 +48,7 @@ class Email(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="emails")
+    linked_email = relationship("LinkedEmail", back_populates="emails")
     analysis = relationship("AnalysisResult", back_populates="email")
 
 
@@ -53,3 +67,15 @@ class AnalysisResult(Base):
     analysed_at = Column(DateTime(timezone=True), server_default=func.now())
 
     email = relationship("Email", back_populates="analysis")
+
+
+class SensitivityConfig(Base):
+    __tablename__ = "sensitivity_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    threshold_value = Column(Float, default=0.7)
+    quarantine_type = Column(String, default="phishing")
+    date_changed = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="sensitivity_configs")

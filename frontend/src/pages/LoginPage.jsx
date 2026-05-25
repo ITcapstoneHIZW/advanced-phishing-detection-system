@@ -30,9 +30,7 @@ function LoginPage() {
       });
       const meData = await meResponse.json();
       if (meData.has_email_linked) {
-        localStorage.setItem("gmailLinked", "true");
-        localStorage.setItem("gmailAddress", meData.gmail_address);
-        localStorage.setItem("emailProvider", meData.email_provider);
+      localStorage.setItem("emailLinked", "true");
       }
 
       navigate("/dashboard");

@@ -5,6 +5,8 @@ import DashboardPage from "./pages/DashboardPage";
 import QuarantinePage from "./pages/QuarantinePage";
 import EmailDetailsPage from "./pages/EmailDetailsPage";
 import LinkEmailPage from "./pages/LinkEmailPage";
+import SensitivitySettingsPage from "./pages/SensitivitySettingsPage";
+import AccountPage from "./pages/AccountPage";
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
@@ -50,6 +52,24 @@ function App() {
           element={
             <ProtectedRoute>
               <EmailDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SensitivitySettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountPage />
             </ProtectedRoute>
           }
         />

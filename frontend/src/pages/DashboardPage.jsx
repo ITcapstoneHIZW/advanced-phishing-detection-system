@@ -11,7 +11,7 @@ function DashboardPage() {
   const [syncMessage, setSyncMessage] = useState("");
 
   const userName = localStorage.getItem("userName") || "User";
-  const gmailLinked = localStorage.getItem("gmailLinked") === "true";
+  const emailLinked = localStorage.getItem("emailLinked") === "true";
 
   const loadEmails = async () => {
     try {
@@ -35,10 +35,10 @@ function DashboardPage() {
       setSyncing(true);
       setSyncMessage("");
       const result = await syncEmails();
-      setSyncMessage(`✅ Synced ${result.emails_stored} new emails from Gmail.`);
+      setSyncMessage(`✅ Synced ${result.emails_stored} new emails.`);
       await loadEmails();
     } catch (err) {
-      setSyncMessage("❌ Sync failed. Check that your Gmail account is linked.");
+      setSyncMessage("❌ Sync failed. Check that your email account is linked.");
     } finally {
       setSyncing(false);
     }
@@ -62,13 +62,13 @@ function DashboardPage() {
           </div>
 
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
-            {gmailLinked ? (
+            {emailLinked ? (
               <button onClick={handleSync} disabled={syncing} style={syncButtonStyle}>
-                {syncing ? "Syncing..." : "Sync Emails from Gmail"}
+                {syncing ? "Syncing..." : "Sync Emails"}
               </button>
             ) : (
               <Link to="/link-email" style={syncButtonStyle}>
-                🔗 Link Your Gmail Account
+                🔗 Link Your Email Account
               </Link>
             )}
             <Link to="/quarantine" style={actionLink}>
@@ -77,10 +77,10 @@ function DashboardPage() {
           </div>
         </div>
 
-        {!gmailLinked && (
+        {!emailLinked && (
           <div style={warningCard}>
             <p style={{ margin: 0 }}>
-              ⚠️ You haven't linked a Gmail account yet.{" "}
+              ⚠️ You haven't linked an email account yet.{" "}
               <Link to="/link-email" style={{ color: "#92400e", fontWeight: "700" }}>
                 Link it here
               </Link>{" "}
@@ -126,9 +126,9 @@ function DashboardPage() {
 
               {recentQuarantined.length === 0 ? (
                 <p style={{ color: "#64748b" }}>
-                  {gmailLinked
-                    ? "No quarantined emails yet. Try syncing from Gmail."
-                    : "Link your Gmail account to start monitoring emails."}
+                  {emailLinked
+                    ? "No quarantined emails yet. Try syncing your emails."
+                    : "Link your email account to start monitoring emails."}
                 </p>
               ) : (
                 <div style={tableWrapper}>
@@ -137,6 +137,7 @@ function DashboardPage() {
                       <tr>
                         <th style={thStyle}>Sender</th>
                         <th style={thStyle}>Subject</th>
+                        <th style={thStyle}>Inbox</th>
                         <th style={thStyle}>Risk Score</th>
                         <th style={thStyle}>Verdict</th>
                         <th style={thStyle}>Date</th>
@@ -148,6 +149,7 @@ function DashboardPage() {
                         <tr key={email.id}>
                           <td style={tdStyle}>{email.sender}</td>
                           <td style={tdStyle}>{email.subject}</td>
+                          <td style={tdStyle}>{email.inbox || "—"}</td>
                           <td style={tdStyle}>{email.risk_score}</td>
                           <td style={tdStyle}>{email.verdict}</td>
                           <td style={tdStyle}>{email.date_received}</td>
