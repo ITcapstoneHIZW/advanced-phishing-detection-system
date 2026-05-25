@@ -1,9 +1,12 @@
 import requests
-from typing import Optional
+from dotenv import load_dotenv
+import os
 
-CLIENT_ID = "f683614c-566c-4112-9e9c-7ba63b40fcb5"
-CLIENT_SECRET = "NE_8Q~-sETphFMzO1Mhq5WfKdgh.LhIZDSR37adn"
-TENANT_ID = "f749221c-9d07-41c6-96e2-d47e733a8d72"
+load_dotenv()
+
+CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
+CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
+TENANT_ID = os.getenv("MICROSOFT_TENANT_ID")
 REDIRECT_URI = "http://localhost:8000/auth/microsoft/callback"
 
 AUTHORITY = f"https://login.microsoftonline.com/common"
@@ -68,13 +71,11 @@ def fetch_emails_microsoft(credentials_dict: dict, max_results: int = 10) -> tup
     access_token = credentials_dict.get("access_token")
     refresh_token = credentials_dict.get("refresh_token")
 
-    # Try to fetch emails
     response = requests.get(
         f"https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top={max_results}&$orderby=receivedDateTime desc",
         headers={"Authorization": f"Bearer {access_token}"}
     )
 
-    # If token expired, refresh it
     if response.status_code == 401 and refresh_token:
         new_creds = refresh_access_token(refresh_token)
         access_token = new_creds["access_token"]
@@ -92,7 +93,6 @@ def fetch_emails_microsoft(credentials_dict: dict, max_results: int = 10) -> tup
 
     for msg in messages:
         body = msg.get("body", {}).get("content", "")
-        # Strip HTML tags for plain text
         import re
         body = re.sub(r"<[^>]+>", "", body)
 

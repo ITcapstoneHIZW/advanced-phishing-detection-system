@@ -11,12 +11,10 @@ function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (!email || !password) {
       setError("Please enter both email and password.");
       return;
     }
-
     try {
       setLoading(true);
       setError("");
@@ -25,6 +23,18 @@ function LoginPage() {
       localStorage.setItem("isAuthenticated", "true");
       localStorage.setItem("userEmail", data.user.email);
       localStorage.setItem("userName", data.user.name);
+
+      // Check if user already has email linked
+      const meResponse = await fetch("http://localhost:8000/me", {
+        headers: { Authorization: `Bearer ${data.access_token}` }
+      });
+      const meData = await meResponse.json();
+      if (meData.has_email_linked) {
+        localStorage.setItem("gmailLinked", "true");
+        localStorage.setItem("gmailAddress", meData.gmail_address);
+        localStorage.setItem("emailProvider", meData.email_provider);
+      }
+
       navigate("/dashboard");
     } catch (err) {
       setError(err.message);
