@@ -172,7 +172,7 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
         <div className="foot-meta">
           <div className="foot-name">{localStorage.getItem("userName") || "User"}</div>
 
-          <div className="foot-role">{localStorage.getItem("userEmail") || ""}</div>
+          <div className="foot-role">Admin · victoria.edu.au</div>
         </div>
         <button
           className="btn"
@@ -289,14 +289,48 @@ const BreakdownRow = ({ cat, score, meta }) => (
   </div>
 );
 
+// === Confirm Modal ===
+const ConfirmModal = ({ title, message, confirmLabel = "Confirm", confirmTone = "critical", onConfirm, onCancel }) => {
+  if (!title) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24,
+    }} onClick={onCancel}>
+      <div style={{
+        background: "var(--bg-elevated)", border: "1px solid var(--border)",
+        borderRadius: "var(--r-xl)", padding: 28, maxWidth: 420, width: "100%",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>{title}</div>
+        <div style={{ fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.55, marginBottom: 22 }}>{message}</div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn" data-variant="ghost" onClick={onCancel}>Cancel</button>
+          <button
+            className="btn"
+            style={{ background: `var(--sev-${confirmTone}-bg)`, color: `var(--sev-${confirmTone})`, border: `1px solid var(--sev-${confirmTone})` }}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export {
   riskLevel, riskColor, riskLabel,
   Sev, RiskBar, Chip, Sparkline, Kpi, Card, Seg,
   Sidebar, PageHeader, ThreatsChart, RiskGauge, BreakdownRow, BrandMark,
+  ConfirmModal,
 };
 
 export default {
   riskLevel, riskColor, riskLabel,
   Sev, RiskBar, Chip, Sparkline, Kpi, Card, Seg,
   Sidebar, PageHeader, ThreatsChart, RiskGauge, BreakdownRow, BrandMark,
+  ConfirmModal,
 };

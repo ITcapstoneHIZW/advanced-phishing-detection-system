@@ -156,6 +156,7 @@ function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [period, setPeriod] = useState("7d");
+  const [auditLogs, setAuditLogs] = useState([]);
 
   const userName = localStorage.getItem("userName") || "User";
   const emailLinked = localStorage.getItem("emailLinked") === "true";
@@ -173,7 +174,17 @@ function DashboardPage() {
     }
   };
 
-  useEffect(() => { loadEmails(); }, []);
+  useEffect(() => {
+    loadEmails();
+    // Fetch recent audit logs for activity feed
+    const token = localStorage.getItem("access_token");
+    fetch("http://localhost:8000/audit-logs?limit=10", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => setAuditLogs(data.logs || []))
+      .catch(() => {});
+  }, []);
 
   const handleSync = async () => {
     try {
@@ -368,9 +379,57 @@ function DashboardPage() {
             )}
           </Card>
         </div>
+
+        {/* Live activity feed */}
+        <div style={{ marginTop: "var(--gap-card)" }}>
+          <Card
+            title={<><I.Activity size={14}/> Live activity feed</>}
+            action={
+              <button className="btn" data-variant="ghost" data-size="sm" onClick={() => navigate("/audit-log")}>
+                View all <I.ChevronRight size={12}/>
+              </button>
+            }
+          >
+            {auditLogs.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>No activity yet. Actions you take will appear here.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {auditLogs.map(log => {
+                  const toneMap = { info: "low", warning: "medium", critical: "critical" };
+                  const tone = toneMap[log.severity] || "low";
+                  const labelMap = {
+                    login_success: "Logged in", login_failed: "Login failed",
+                    user_registered: "Account created", email_linked: "Mailbox linked",
+                    email_relinked: "Mailbox updated", email_unlinked: "Mailbox unlinked",
+                    email_sync: "Emails synced", sync_error: "Sync error",
+                    email_released: "Email released", email_deleted: "Email deleted",
+                    feedback_submitted: "Feedback submitted", sensitivity_updated: "Sensitivity changed",
+                    password_changed: "Password changed", account_deleted: "Account deleted",
+                  };
+                  return (
+                    <div key={log.id} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
+                      <div style={{
+                        width: 8, height: 8, borderRadius: "50%", marginTop: 5, flexShrink: 0,
+                        background: `var(--sev-${tone})`,
+                      }}/>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{labelMap[log.action] || log.action}</div>
+                        {log.detail && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{log.detail}</div>}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--text-faint)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     </>
   );
 }
 
 export default DashboardPage;
+

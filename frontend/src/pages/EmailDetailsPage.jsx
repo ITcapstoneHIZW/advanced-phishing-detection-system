@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import I from "../components/Icons";
-import { Card, Sev, PageHeader, riskLabel, riskColor, RiskBar } from "../components/Ui";
+import { Card, Sev, PageHeader, riskLabel, riskColor, RiskBar, ConfirmModal } from "../components/Ui";
 import { getEmailById, releaseEmail, deleteEmail, submitFeedback } from "../api/emailService";
 
 // === Risk Gauge ===
@@ -99,6 +99,7 @@ function EmailDetailsPage() {
   const [actionLoading, setActionLoading] = useState("");
   const [toast, setToast] = useState("");
   const [showRawHeaders, setShowRawHeaders] = useState(false);
+  const [confirm, setConfirm] = useState(null); // { title, message, confirmLabel, confirmTone, onConfirm }
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -117,38 +118,64 @@ function EmailDetailsPage() {
     })();
   }, [id]);
 
-  const handleRelease = async () => {
-    if (!window.confirm("Release this email from quarantine?")) return;
-    try {
-      setActionLoading("release");
+  const handleRelease = () => {
+    setConfirm({
+      title: "Release email",
+      message: "This email will be moved from quarantine to your inbox.",
+      confirmLabel: "Release",
+      confirmTone: "medium",
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          setActionLoading("release");
       await releaseEmail(id);
-      setEmail(prev => ({ ...prev, is_quarantined: false }));
-      showToast("Email released from quarantine.");
-    } catch { setError("Failed to release email."); }
-    finally { setActionLoading(""); }
+          setEmail(prev => ({ ...prev, is_quarantined: false }));
+          showToast("Email released from quarantine.");
+        } catch { setError("Failed to release email."); }
+        finally { setActionLoading(""); }
+      }
+    });
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm("Permanently delete this email? This cannot be undone.")) return;
-    try {
-      setActionLoading("delete");
-      await deleteEmail(id);
-      navigate("/quarantine");
-    } catch {
-      setError("Failed to delete email.");
-      setActionLoading("");
-    }
+  const handleDelete = () => {
+    setConfirm({
+      title: "Delete email",
+      message: "This email will be permanently deleted and cannot be recovered.",
+      confirmLabel: "Delete permanently",
+      confirmTone: "critical",
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          setActionLoading("delete");
+          await deleteEmail(id);
+          navigate("/quarantine");
+        } catch {
+          setError("Failed to delete email.");
+          setActionLoading("");
+        }
+      }
+    });
   };
 
-  const handleFeedback = async (verdict) => {
-    if (!window.confirm(`Mark this email as ${verdict}?`)) return;
-    try {
-      setActionLoading(verdict);
+  const handleFeedback = (verdict) => {
+    setConfirm({
+      title: `Mark as ${verdict}`,
+      message: verdict === "Phishing"
+        ? "This email will be confirmed as phishing and added to the retraining dataset."
+        : "This email will be marked as safe and released from quarantine.",
+      confirmLabel: `Mark as ${verdict}`,
+      confirmTone: verdict === "Phishing" ? "critical" : "low",
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          setActionLoading(verdict);
       await submitFeedback(id, verdict);
-      setEmail(prev => ({ ...prev, verdict }));
-      showToast(`Email marked as ${verdict}.`);
-    } catch { setError("Failed to submit feedback."); }
-    finally { setActionLoading(""); }
+          setEmail(prev => ({ ...prev, verdict }));
+          showToast(`Email marked as ${verdict}.`);
+        } catch { setError("Failed to submit feedback."); }
+        finally { setActionLoading(""); }
+      }
+    });
   };
 
   // Build detection flags from analysis data
@@ -203,7 +230,15 @@ function EmailDetailsPage() {
       />
 
       <div className="page-body">
-        {toast && (
+        <ConfirmModal
+        title={confirm?.title}
+        message={confirm?.message}
+        confirmLabel={confirm?.confirmLabel}
+        confirmTone={confirm?.confirmTone}
+        onConfirm={confirm?.onConfirm}
+        onCancel={() => setConfirm(null)}
+      />
+      {toast && (
           <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 1000, background: "var(--text)", color: "var(--bg-elevated)", padding: "10px 16px", borderRadius: "var(--r-md)", fontSize: 13, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", fontWeight: 500 }}>
             {toast}
           </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -19,6 +19,22 @@ function ProtectedRoute({ children }) {
 function ShellLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [quarantineCount, setQuarantineCount] = useState(0);
+
+  // Fetch real quarantine count
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    fetch("http://localhost:8000/emails", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        const count = (data.emails || []).filter(e => e.is_quarantined).length;
+        setQuarantineCount(count);
+      })
+      .catch(() => {});
+  }, [location.pathname]); // re-fetch when navigating between pages
 
   const path = location.pathname;
   const route =
@@ -41,7 +57,6 @@ function ShellLayout({ children }) {
     navigate("/");
   };
 
-  const quarantineCount = 0;
   const brandName = "Phishing Detection";
 
   return (

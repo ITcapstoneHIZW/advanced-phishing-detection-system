@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import I from "../components/Icons";
-import { Card, RiskBar, PageHeader, Seg, Chip } from "../components/Ui";
+import { Card, RiskBar, PageHeader, Seg, Chip, ConfirmModal } from "../components/Ui";
 import { getEmails, releaseEmail, deleteEmail } from "../api/emailService";
 
 const PAGE_SIZE = 20;
@@ -37,6 +37,7 @@ function QuarantinePage() {
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [toast, setToast] = useState("");
+  const [confirm, setConfirm] = useState(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -111,9 +112,15 @@ function QuarantinePage() {
     showToast(`Released ${count} email${count !== 1 ? "s" : ""}.`);
   };
 
-  const bulkDelete = async () => {
-    if (!window.confirm(`Permanently delete ${selected.size} email(s)? This cannot be undone.`)) return;
-    setBulkLoading(true);
+  const bulkDelete = () => {
+    setConfirm({
+      title: `Delete ${selected.size} email${selected.size !== 1 ? "s" : ""}`,
+      message: `Permanently delete ${selected.size} selected email${selected.size !== 1 ? "s" : ""}? This cannot be undone.`,
+      confirmLabel: "Delete permanently",
+      confirmTone: "critical",
+      onConfirm: async () => {
+        setConfirm(null);
+        setBulkLoading(true);
     let count = 0;
     for (const id of selected) {
       try { await deleteEmail(id); count++; } catch {}
@@ -121,7 +128,9 @@ function QuarantinePage() {
     setSelected(new Set());
     await loadEmails();
     setBulkLoading(false);
-    showToast(`Deleted ${count} email${count !== 1 ? "s" : ""}.`);
+        showToast(`Deleted ${count} email${count !== 1 ? "s" : ""}.`);
+      }
+    });
   };
 
   const exportCSV = () => {
@@ -304,6 +313,14 @@ function QuarantinePage() {
         </Card>
       </div>
 
+      <ConfirmModal
+        title={confirm?.title}
+        message={confirm?.message}
+        confirmLabel={confirm?.confirmLabel}
+        confirmTone={confirm?.confirmTone}
+        onConfirm={confirm?.onConfirm}
+        onCancel={() => setConfirm(null)}
+      />
       {/* Toast */}
       {toast && (
         <div style={{

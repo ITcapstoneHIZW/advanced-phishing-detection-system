@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import I from "../components/Icons";
-import { Card, PageHeader, Sev } from "../components/Ui";
+import { Card, PageHeader, Sev, ConfirmModal } from "../components/Ui";
 
 const BASE_URL = "http://localhost:8000";
 
@@ -11,6 +11,7 @@ function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [confirm, setConfirm] = useState(null);
 
   // Password change state
   const [showPwForm, setShowPwForm] = useState(false);
@@ -52,9 +53,15 @@ function AccountPage() {
     })();
   }, []);
 
-  const handleUnlink = async (linkedId) => {
-    if (!window.confirm("Unlink this email account?")) return;
-    try {
+  const handleUnlink = (linkedId) => {
+    setConfirm({
+      title: "Unlink email account",
+      message: "This mailbox will stop being monitored. You can re-link it at any time.",
+      confirmLabel: "Unlink",
+      confirmTone: "medium",
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
       const res = await fetch(`${BASE_URL}/linked-emails/${linkedId}`, {
         method: "DELETE", headers: authHeaders,
       });
@@ -66,10 +73,12 @@ function AccountPage() {
       if (account.linked_emails.length === 1) {
         localStorage.removeItem("emailLinked");
       }
-      showToast("Email account unlinked.");
-    } catch {
-      setError("Failed to unlink email account.");
-    }
+          showToast("Email account unlinked.");
+        } catch {
+          setError("Failed to unlink email account.");
+        }
+      }
+    });
   };
 
   const handleChangePassword = async (e) => {
@@ -96,16 +105,23 @@ function AccountPage() {
     } finally { setPwLoading(false); }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("Permanently delete your account and all data? This cannot be undone.")) return;
-    if (!window.confirm("Are you absolutely sure? All emails, analysis, and settings will be deleted.")) return;
-    try {
-      await fetch(`${BASE_URL}/account`, { method: "DELETE", headers: authHeaders });
-      localStorage.clear();
-      navigate("/");
-    } catch {
-      setError("Failed to delete account.");
-    }
+  const handleDeleteAccount = () => {
+    setConfirm({
+      title: "Delete account permanently",
+      message: "All your emails, analysis results, linked accounts, and settings will be permanently deleted. This cannot be undone.",
+      confirmLabel: "Delete my account",
+      confirmTone: "critical",
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          await fetch(`${BASE_URL}/account`, { method: "DELETE", headers: authHeaders });
+          localStorage.clear();
+          navigate("/");
+        } catch {
+          setError("Failed to delete account.");
+        }
+      }
+    });
   };
 
   const handleSignOut = () => { localStorage.clear(); navigate("/"); };
@@ -134,6 +150,14 @@ function AccountPage() {
       <PageHeader crumbs={["Account"]} />
 
       <div className="page-body">
+        <ConfirmModal
+          title={confirm?.title}
+          message={confirm?.message}
+          confirmLabel={confirm?.confirmLabel}
+          confirmTone={confirm?.confirmTone}
+          onConfirm={confirm?.onConfirm}
+          onCancel={() => setConfirm(null)}
+        />
         {toast && (
           <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 1000, background: "var(--text)", color: "var(--bg-elevated)", padding: "10px 16px", borderRadius: "var(--r-md)", fontSize: 13, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", fontWeight: 500 }}>
             {toast}
