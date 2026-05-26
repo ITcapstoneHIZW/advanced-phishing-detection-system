@@ -9,6 +9,7 @@ import LinkEmailPage from "./pages/LinkEmailPage";
 import SensitivitySettingsPage from "./pages/SensitivitySettingsPage";
 import AccountPage from "./pages/AccountPage";
 import AuditLogPage from "./pages/AuditLogPage";
+import AllMailPage from "./pages/AllMailPage";
 import { Sidebar } from "./components/Ui";
 
 function ProtectedRoute({ children }) {
@@ -42,6 +43,7 @@ function ShellLayout({ children }) {
     : path.startsWith("/settings")  ? "settings"
     : path.startsWith("/account")   ? "account"
     : path.startsWith("/audit-log") ? "audit-log"
+    : path.startsWith("/all-mail")  ? "all-mail"
     : "dashboard";
 
   const setRoute = (key) => {
@@ -50,6 +52,7 @@ function ShellLayout({ children }) {
     else if (key === "settings")   navigate("/settings");
     else if (key === "account")    navigate("/account");
     else if (key === "audit-log")  navigate("/audit-log");
+    else if (key === "all-mail")   navigate("/all-mail");
   };
 
   const onSignOut = () => {
@@ -90,6 +93,7 @@ function App() {
         <Route path="/settings"   element={<ProtectedRoute><ShellLayout><SensitivitySettingsPage /></ShellLayout></ProtectedRoute>} />
         <Route path="/account"    element={<ProtectedRoute><ShellLayout><AccountPage /></ShellLayout></ProtectedRoute>} />
         <Route path="/audit-log"  element={<ProtectedRoute><ShellLayout><AuditLogPage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/all-mail"   element={<ProtectedRoute><ShellLayout><AllMailPage /></ShellLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );

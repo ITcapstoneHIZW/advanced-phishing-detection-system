@@ -133,6 +133,7 @@ const BrandMark = ({ tweak }) => (
 const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, onSignOut }) => {
   const nav = [
     { key: "dashboard",  label: "Dashboard",  icon: <I.Activity size={16} /> },
+    { key: "all-mail",   label: "All Mail",   icon: <I.Mail size={16} /> },
     { key: "quarantine", label: "Quarantine", icon: <I.Lock size={16} />, badge: quarantineCount, badgeTone: "critical" },
     { key: "settings",   label: "Sensitivity", icon: <I.Sliders size={16} /> },
     { key: "audit-log",  label: "Audit Log",  icon: <I.FileText size={16} /> },

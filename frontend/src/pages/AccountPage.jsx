@@ -21,6 +21,7 @@ function AccountPage() {
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState("");
 
+
   // Stats
   const [stats, setStats] = useState({ total: 0, quarantined: 0, safe: 0, phishing: 0 });
 
@@ -275,6 +276,7 @@ function AccountPage() {
                       <div className="field">
                         <label>New password</label>
                         <div className="input"><I.Lock size={13}/><input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="New password (min 6 chars)" /></div>
+                        
                       </div>
                       <div className="field">
                         <label>Confirm new password</label>
@@ -355,5 +357,3 @@ function AccountPage() {
     </>
   );
 }
-
-export default AccountPage;
