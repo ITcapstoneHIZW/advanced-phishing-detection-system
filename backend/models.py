@@ -102,3 +102,17 @@ class SensitivityConfig(Base):
     date_changed = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="sensitivity_configs")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_email = Column(String, nullable=True)
+    action = Column(String, nullable=False)
+    entity_type = Column(String, nullable=True)
+    entity_id = Column(String, nullable=True)
+    detail = Column(Text, nullable=True)
+    severity = Column(String, default="info")
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())

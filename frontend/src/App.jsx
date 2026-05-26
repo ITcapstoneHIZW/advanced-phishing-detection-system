@@ -8,6 +8,7 @@ import EmailDetailsPage from "./pages/EmailDetailsPage";
 import LinkEmailPage from "./pages/LinkEmailPage";
 import SensitivitySettingsPage from "./pages/SensitivitySettingsPage";
 import AccountPage from "./pages/AccountPage";
+import AuditLogPage from "./pages/AuditLogPage";
 import { Sidebar } from "./components/Ui";
 
 function ProtectedRoute({ children }) {
@@ -15,24 +16,24 @@ function ProtectedRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/" replace />;
 }
 
-// Routes that use the sidebar shell. Login/Register/LinkEmail render full-screen.
 function ShellLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Map current path → sidebar's notion of route
   const path = location.pathname;
   const route =
     path.startsWith("/quarantine") || path.startsWith("/email") ? "quarantine"
-    : path.startsWith("/settings") ? "settings"
-    : path.startsWith("/account")  ? "account"
+    : path.startsWith("/settings")  ? "settings"
+    : path.startsWith("/account")   ? "account"
+    : path.startsWith("/audit-log") ? "audit-log"
     : "dashboard";
 
   const setRoute = (key) => {
-    if (key === "dashboard")  navigate("/dashboard");
+    if (key === "dashboard")       navigate("/dashboard");
     else if (key === "quarantine") navigate("/quarantine");
     else if (key === "settings")   navigate("/settings");
     else if (key === "account")    navigate("/account");
+    else if (key === "audit-log")  navigate("/audit-log");
   };
 
   const onSignOut = () => {
@@ -40,7 +41,6 @@ function ShellLayout({ children }) {
     navigate("/");
   };
 
-  // Could be replaced with a real query when you persist quarantine count
   const quarantineCount = 0;
   const brandName = "Phishing Detection";
 
@@ -69,11 +69,12 @@ function App() {
         <Route path="/link-email" element={<ProtectedRoute><LinkEmailPage /></ProtectedRoute>} />
 
         {/* Shell routes */}
-        <Route path="/dashboard"   element={<ProtectedRoute><ShellLayout><DashboardPage /></ShellLayout></ProtectedRoute>} />
-        <Route path="/quarantine"  element={<ProtectedRoute><ShellLayout><QuarantinePage /></ShellLayout></ProtectedRoute>} />
-        <Route path="/email/:id"   element={<ProtectedRoute><ShellLayout><EmailDetailsPage /></ShellLayout></ProtectedRoute>} />
-        <Route path="/settings"    element={<ProtectedRoute><ShellLayout><SensitivitySettingsPage /></ShellLayout></ProtectedRoute>} />
-        <Route path="/account"     element={<ProtectedRoute><ShellLayout><AccountPage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/dashboard"  element={<ProtectedRoute><ShellLayout><DashboardPage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/quarantine" element={<ProtectedRoute><ShellLayout><QuarantinePage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/email/:id"  element={<ProtectedRoute><ShellLayout><EmailDetailsPage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/settings"   element={<ProtectedRoute><ShellLayout><SensitivitySettingsPage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/account"    element={<ProtectedRoute><ShellLayout><AccountPage /></ShellLayout></ProtectedRoute>} />
+        <Route path="/audit-log"  element={<ProtectedRoute><ShellLayout><AuditLogPage /></ShellLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );

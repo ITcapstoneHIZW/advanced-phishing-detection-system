@@ -132,9 +132,10 @@ const BrandMark = ({ tweak }) => (
 // === Sidebar ===
 const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, onSignOut }) => {
   const nav = [
-    { key: "dashboard",  label: "Dashboard", icon: <I.Activity size={16} /> },
+    { key: "dashboard",  label: "Dashboard",  icon: <I.Activity size={16} /> },
     { key: "quarantine", label: "Quarantine", icon: <I.Lock size={16} />, badge: quarantineCount, badgeTone: "critical" },
     { key: "settings",   label: "Sensitivity", icon: <I.Sliders size={16} /> },
+    { key: "audit-log",  label: "Audit Log",  icon: <I.FileText size={16} /> },
   ];
 
   return (
@@ -167,12 +168,11 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
         data-active={route === "account"}
         onClick={() => onAccount && onAccount()}
       >
-        <div className="avatar">
-          {(localStorage.getItem("userName") || "U").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
-        </div>
+        <div className="avatar">{(localStorage.getItem("userName") || "U").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}</div>
         <div className="foot-meta">
           <div className="foot-name">{localStorage.getItem("userName") || "User"}</div>
-          <div className="foot-email">{localStorage.getItem("userEmail") || ""}</div>
+
+          <div className="foot-role">Admin · victoria.edu.au</div>
         </div>
         <button
           className="btn"
