@@ -1,163 +1,139 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import I from "../components/Icons";
+import { BrandMark } from "../components/Ui";
 import { loginUser } from "../api/emailService";
 
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setError("Please enter both email and password.");
-      return;
-    }
+  e.preventDefault();
+  if (!email || !password) {
+    setError("Please enter both email and password.");
+    return;
+  }
+  try {
+    setLoading(true);
+    setError("");
+    const data = await loginUser(email, password);
+    localStorage.setItem("access_token", data.access_token);
+    localStorage.setItem("isAuthenticated", "true");
+    localStorage.setItem("userEmail", data.user.email);
+    localStorage.setItem("userName", data.user.name);
+
+    // Don't let /me failure block navigation
     try {
-      setLoading(true);
-      setError("");
-      const data = await loginUser(email, password);
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userEmail", data.user.email);
-      localStorage.setItem("userName", data.user.name);
-
-      // Check if user already has email linked
-      const meResponse = await fetch("http://localhost:8000/me", {
-        headers: { Authorization: `Bearer ${data.access_token}` }
+      const meRes = await fetch("http://localhost:8000/me", {
+        headers: { Authorization: `Bearer ${data.access_token}` },
       });
-      const meData = await meResponse.json();
-      if (meData.has_email_linked) {
-      localStorage.setItem("emailLinked", "true");
-      }
-
-      navigate("/dashboard");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      const meData = await meRes.json();
+      if (meData.has_email_linked) localStorage.setItem("emailLinked", "true");
+    } catch {
+      // /me failed — not critical, proceed anyway
     }
-  };
+
+    navigate("/dashboard");
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
-    <div style={pageStyle}>
-      <div style={cardStyle}>
-        <h1 style={titleStyle}>Phishing Detection System</h1>
-        <p style={subtitleStyle}>Sign in to access the dashboard</p>
-
-        <form onSubmit={handleLogin}>
-          <div style={fieldWrapper}>
-            <label style={labelStyle}>Email</label>
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle}
-            />
+    <div className="login-wrap">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", maxWidth: 900, width: "100%", gap: 0, alignItems: "stretch" }}>
+        <div className="login-card" style={{ width: "auto", borderRadius: "var(--r-xl) 0 0 var(--r-xl)", borderRight: 0 }}>
+          <div className="row" style={{ marginBottom: 28 }}>
+            <BrandMark />
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Phishing Detection</span>
           </div>
 
-          <div style={fieldWrapper}>
-            <label style={labelStyle}>Password</label>
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={inputStyle}
-            />
+          <h1>Sign in to your console</h1>
+          <p>Personal or work email — any address that receives mail you want monitored.</p>
+
+          <form onSubmit={handleLogin}>
+            <div className="field">
+              <label>Email</label>
+              <div className="input">
+                <I.AtSign size={14}/>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoFocus />
+              </div>
+            </div>
+
+            <div className="field">
+              <label className="between" style={{ fontSize: 12 }}>
+                <span>Password</span>
+                <a style={{ color: "var(--accent)", fontWeight: 500 }} href="#">Forgot?</a>
+              </label>
+              <div className="input">
+                <I.Lock size={14}/>
+                <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" />
+                <button type="button" onClick={() => setShowPw(!showPw)} style={{ background: "transparent", border: 0, color: "var(--text-muted)", cursor: "pointer", padding: 0 }}>
+                  {showPw ? <I.EyeOff size={14}/> : <I.Eye size={14}/>}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div style={{ padding: "10px 14px", background: "var(--sev-critical-bg)", border: "1px solid var(--sev-critical)", borderRadius: "var(--r-md)", color: "var(--sev-critical)", fontSize: 13, marginBottom: 14 }}>
+                {error}
+              </div>
+            )}
+
+            <label className="row" style={{ marginBottom: 18, fontSize: 12.5, color: "var(--text-secondary)", cursor: "pointer" }}>
+              <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
+              <span>Keep me signed in for 30 days</span>
+            </label>
+
+            <button type="submit" className="btn" data-variant="primary" data-size="lg" style={{ width: "100%", justifyContent: "center" }} disabled={loading}>
+              {loading ? <><I.RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }}/> Authenticating…</> : <>Sign in <I.ArrowUpRight size={14}/></>}
+            </button>
+
+            <p style={{ marginTop: 22, fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+              No account? <Link to="/register" style={{ color: "var(--accent)", fontWeight: 500 }}>Create one here</Link>
+            </p>
+          </form>
+        </div>
+
+        <div style={{
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+          borderLeft: 0,
+          borderRadius: "0 var(--r-xl) var(--r-xl) 0",
+          padding: 32,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          minHeight: 480,
+        }}>
+          <div>
+            <span className="sev" data-level="low">
+              <span className="sev-dot" style={{ background: "var(--sev-low)" }}></span>
+              All systems operational
+            </span>
+            <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.015em", margin: "20px 0 10px", lineHeight: 1.25 }}>
+              Adaptive phishing defence, with the reasoning included.
+            </h2>
+            <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>
+              Every quarantine decision is explained, every flag traceable to a feature.
+            </p>
           </div>
 
-          {error && <p style={errorStyle}>{error}</p>}
-
-          <button type="submit" style={primaryButtonStyle} disabled={loading}>
-            {loading ? "Signing in..." : "Login"}
-          </button>
-        </form>
-
-        <p style={footerTextStyle}>
-          Don't have an account? <Link to="/register">Create one here</Link>
-        </p>
+          <div style={{ marginTop: 28, padding: "12px 14px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)", fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
+            By signing in you agree to the Acceptable Use Policy.
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-
-const pageStyle = {
-  minHeight: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg, #e2e8f0, #f8fafc)",
-  padding: "20px",
-};
-
-const cardStyle = {
-  width: "100%",
-  maxWidth: "420px",
-  background: "white",
-  padding: "32px",
-  borderRadius: "16px",
-  boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
-};
-
-const titleStyle = {
-  margin: 0,
-  textAlign: "center",
-  color: "#0f172a",
-};
-
-const subtitleStyle = {
-  textAlign: "center",
-  color: "#64748b",
-  marginTop: "10px",
-  marginBottom: "24px",
-};
-
-const fieldWrapper = {
-  marginBottom: "16px",
-};
-
-const labelStyle = {
-  display: "block",
-  marginBottom: "6px",
-  fontWeight: "600",
-  color: "#334155",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #cbd5e1",
-  fontSize: "14px",
-  boxSizing: "border-box",
-};
-
-const primaryButtonStyle = {
-  width: "100%",
-  padding: "12px",
-  background: "#0f172a",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: "700",
-  marginTop: "6px",
-};
-
-const errorStyle = {
-  color: "#dc2626",
-  marginBottom: "14px",
-  fontSize: "14px",
-};
-
-const footerTextStyle = {
-  marginTop: "20px",
-  textAlign: "center",
-  color: "#475569",
-};
 
 export default LoginPage;

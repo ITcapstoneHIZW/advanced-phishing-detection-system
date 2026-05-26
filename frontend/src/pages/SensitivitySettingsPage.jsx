@@ -1,243 +1,176 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import React, { useState, useEffect } from "react";
+import I from "../components/Icons";
+import { Card, PageHeader } from "../components/Ui";
 
 const BASE_URL = "http://localhost:8000";
 
 function SettingsPage() {
-  const navigate = useNavigate();
   const [threshold, setThreshold] = useState(0.7);
-  const [quarantineType, setQuarantineType] = useState("phishing");
+  const [mode, setMode] = useState("phishing");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [saved, setSaved] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const loadSettings = async () => {
+    (async () => {
       try {
-        const response = await fetch(`${BASE_URL}/settings/sensitivity`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
+        const res = await fetch(`${BASE_URL}/settings/sensitivity`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
         });
-        const data = await response.json();
-        setThreshold(data.threshold);
-        setQuarantineType(data.quarantine_type);
-      } catch (err) {
+        const data = await res.json();
+        if (data.threshold != null) setThreshold(data.threshold);
+        if (data.quarantine_type) setMode(data.quarantine_type);
+      } catch {
         setError("Could not load settings.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadSettings();
+      } finally { setLoading(false); }
+    })();
   }, []);
+
+  const sensLabel = (t) => {
+    if (t <= 0.3) return { label: "Very sensitive", desc: "Flags almost everything — expect many false positives.", tone: "critical" };
+    if (t <= 0.5) return { label: "High sensitivity", desc: "Catches more phishing but may flag some legitimate emails.", tone: "high" };
+    if (t <= 0.7) return { label: "Balanced (recommended)", desc: "Good balance between security and usability.", tone: "low" };
+    if (t <= 0.85) return { label: "Low sensitivity", desc: "Less false positives but may miss some phishing attempts.", tone: "medium" };
+    return { label: "Very lenient", desc: "Only obvious phishing is flagged — not recommended.", tone: "clean" };
+  };
+  const sens = sensLabel(threshold);
 
   const handleSave = async () => {
     try {
-      setSaving(true);
-      setError("");
-      setSuccessMessage("");
-      const response = await fetch(`${BASE_URL}/settings/sensitivity`, {
+      setSaving(true); setError(""); setSaved("");
+      const res = await fetch(`${BASE_URL}/settings/sensitivity`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
-        body: JSON.stringify({
-          threshold: parseFloat(threshold),
-          quarantine_type: quarantineType,
-        }),
+        body: JSON.stringify({ threshold: parseFloat(threshold), quarantine_type: mode }),
       });
-      if (!response.ok) {
-        const err = await response.json();
+      if (!res.ok) {
+        const err = await res.json();
         throw new Error(err.detail || "Failed to save settings.");
       }
-      setSuccessMessage("✅ Settings saved successfully.");
+      setSaved("Settings saved.");
     } catch (err) {
       setError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  const handleReset = () => {
-    setThreshold(0.7);
-    setQuarantineType("phishing");
-    setSuccessMessage("");
-    setError("");
-  };
+  const handleReset = () => { setThreshold(0.7); setMode("phishing"); setSaved(""); setError(""); };
 
-  const getRiskLabel = (value) => {
-    if (value <= 0.3) return { label: "Very Sensitive", desc: "Flags almost everything — expect many false positives", color: "#dc2626" };
-    if (value <= 0.5) return { label: "High Sensitivity", desc: "Catches more phishing but may flag some legitimate emails", color: "#ea580c" };
-    if (value <= 0.7) return { label: "Balanced (Recommended)", desc: "Good balance between security and usability", color: "#16a34a" };
-    if (value <= 0.85) return { label: "Low Sensitivity", desc: "Less false positives but may miss some phishing attempts", color: "#2563eb" };
-    return { label: "Very Low Sensitivity", desc: "Only flags obvious phishing — not recommended", color: "#64748b" };
-  };
-
-  const risk = getRiskLabel(threshold);
+  const modes = [
+    { v: "phishing",   t: "Phishing only",         d: "Only quarantine emails classified as Phishing.", icon: <I.ShieldAlert size={14}/> },
+    { v: "suspicious", t: "Phishing + Suspicious", d: "Quarantine both Phishing and Suspicious emails.", icon: <I.AlertTriangle size={14}/> },
+    { v: "all",        t: "All flagged",           d: "Quarantine any email with a risk score above the threshold.", icon: <I.Lock size={14}/> },
+  ];
 
   return (
-    <div style={pageWrapper}>
-      <Navbar />
+    <>
+      <PageHeader
+        crumbs={["Sensitivity"]}
+        actions={
+          <>
+            <button className="btn" data-variant="ghost" onClick={handleReset}>Reset to default</button>
+            <button className="btn" data-variant="primary" onClick={handleSave} disabled={saving}>
+              <I.Check size={14}/> {saving ? "Saving…" : "Save changes"}
+            </button>
+          </>
+        }
+      />
+      <div className="page-body">
+        <h1 className="page-title">Sensitivity settings</h1>
+        <p className="page-sub">Adjust how aggressively the system flags suspicious emails.</p>
 
-      <div style={contentWrapper}>
-        <div style={headerRow}>
-          <div>
-            <h1 style={pageTitle}>Model & Sensitivity Settings</h1>
-            <p style={pageSubtitle}>Adjust how aggressively the system flags suspicious emails</p>
-          </div>
-        </div>
+        {saved && (
+          <div style={{ padding: "10px 14px", background: "var(--sev-low-bg)", border: "1px solid var(--sev-low)", borderRadius: "var(--r-md)", color: "var(--sev-low)", fontSize: 13, marginBottom: 14, fontWeight: 500 }}>{saved}</div>
+        )}
+        {error && (
+          <div style={{ padding: "10px 14px", background: "var(--sev-critical-bg)", border: "1px solid var(--sev-critical)", borderRadius: "var(--r-md)", color: "var(--sev-critical)", fontSize: 13, marginBottom: 14 }}>{error}</div>
+        )}
 
         {loading ? (
-          <div style={spinnerWrapper}>
-            <div style={spinnerStyle} />
-            <p style={{ color: "#64748b", marginTop: "16px" }}>Loading settings...</p>
-          </div>
+          <Card><div className="empty"><div>Loading settings…</div></div></Card>
         ) : (
           <>
-            {successMessage && (
-              <div style={successCard}>
-                <p style={{ margin: 0 }}>{successMessage}</p>
-              </div>
-            )}
-            {error && (
-              <div style={errorCard}>
-                <p style={{ margin: 0 }}>⚠️ {error}</p>
-              </div>
-            )}
-
-            {/* Sensitivity Slider */}
-            <div style={sectionCard}>
-              <h3 style={sectionTitle}>Detection Threshold</h3>
-              <p style={sectionDesc}>
-                This controls the risk score cutoff for quarantining emails.
-                Lower values are more aggressive, higher values are more lenient.
+            <Card title={<><I.Sliders size={14}/> Detection threshold</>}>
+              <p className="muted" style={{ fontSize: 13, margin: "0 0 18px" }}>
+                This controls the risk score cutoff for quarantining emails. Lower values are more aggressive, higher values are more lenient.
               </p>
-
-              <div style={sliderWrapper}>
-                <div style={sliderLabels}>
-                  <span style={{ color: "#dc2626", fontWeight: "600" }}>More Sensitive</span>
-                  <span style={{ color: "#64748b", fontWeight: "600" }}>Less Sensitive</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="0.9"
-                  step="0.01"
-                  value={threshold}
-                  onChange={(e) => {
-                    setThreshold(parseFloat(e.target.value));
-                    setSuccessMessage("");
-                  }}
-                  style={sliderStyle}
-                />
-                <div style={thresholdDisplay}>
-                  <span style={{ fontSize: "32px", fontWeight: "800", color: risk.color }}>
-                    {threshold.toFixed(2)}
-                  </span>
-                </div>
+              <div className="between" style={{ marginBottom: 14 }}>
+                <span className="muted" style={{ fontSize: 12, fontWeight: 500 }}>More sensitive</span>
+                <span className="muted" style={{ fontSize: 12, fontWeight: 500 }}>Less sensitive</span>
               </div>
-
-              <div style={{ ...riskBadge, background: risk.color + "15", border: `1px solid ${risk.color}33` }}>
-                <p style={{ margin: 0, fontWeight: "700", color: risk.color }}>{risk.label}</p>
-                <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#475569" }}>{risk.desc}</p>
+              <input
+                type="range" min="0.1" max="0.9" step="0.01"
+                value={threshold}
+                onChange={e => { setThreshold(parseFloat(e.target.value)); setSaved(""); }}
+                className="slider"
+              />
+              <div style={{ textAlign: "center", marginTop: 16 }}>
+                <span style={{ fontSize: 36, fontWeight: 600, letterSpacing: "-0.02em", color: `var(--sev-${sens.tone})`, fontFeatureSettings: '"tnum"' }}>
+                  {threshold.toFixed(2)}
+                </span>
               </div>
+              <div style={{ marginTop: 12, padding: "12px 16px", background: `var(--sev-${sens.tone}-bg)`, border: `1px solid var(--sev-${sens.tone})`, borderRadius: "var(--r-md)" }}>
+                <div style={{ fontWeight: 600, color: `var(--sev-${sens.tone})`, fontSize: 13.5 }}>{sens.label}</div>
+                <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>{sens.desc}</div>
+              </div>
+            </Card>
+
+            <div style={{ marginTop: "var(--gap-card)" }}>
+              <Card title={<><I.Lock size={14}/> Quarantine mode</>}>
+                <p className="muted" style={{ fontSize: 13, margin: "0 0 14px" }}>
+                  Choose which types of emails get quarantined automatically.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                  {modes.map(o => (
+                    <button
+                      key={o.v}
+                      onClick={() => { setMode(o.v); setSaved(""); }}
+                      style={{
+                        textAlign: "left", padding: 14,
+                        borderRadius: "var(--r-md)",
+                        border: `1px solid ${mode === o.v ? "var(--accent)" : "var(--border)"}`,
+                        background: mode === o.v ? "var(--accent-bg)" : "var(--bg-elevated)",
+                        cursor: "pointer", display: "flex", flexDirection: "column", gap: 4, color: "var(--text)",
+                      }}
+                    >
+                      <div className="row">{o.icon}<strong style={{ fontSize: 13.5 }}>{o.t}</strong></div>
+                      <div className="muted" style={{ fontSize: 12 }}>{o.d}</div>
+                    </button>
+                  ))}
+                </div>
+              </Card>
             </div>
 
-            {/* Quarantine Type */}
-            <div style={sectionCard}>
-              <h3 style={sectionTitle}>Quarantine Mode</h3>
-              <p style={sectionDesc}>Choose which types of emails get quarantined automatically.</p>
-
-              <div style={optionGrid}>
-                {[
-                  { value: "phishing", label: "Phishing Only", desc: "Only quarantine emails classified as Phishing", icon: "🎣" },
-                  { value: "suspicious", label: "Phishing + Suspicious", desc: "Quarantine both Phishing and Suspicious emails", icon: "⚠️" },
-                  { value: "all", label: "All Flagged", desc: "Quarantine any email with a risk score above threshold", icon: "🔒" },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setQuarantineType(option.value)}
-                    style={{
-                      ...optionButton,
-                      border: quarantineType === option.value ? "2px solid #2563eb" : "2px solid #e2e8f0",
-                      background: quarantineType === option.value ? "#eff6ff" : "white",
-                    }}
-                  >
-                    <span style={{ fontSize: "24px" }}>{option.icon}</span>
-                    <span style={{ fontWeight: "700", color: "#0f172a" }}>{option.label}</span>
-                    <span style={{ fontSize: "13px", color: "#64748b" }}>{option.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Model Info */}
-            <div style={sectionCard}>
-              <h3 style={sectionTitle}>Model Information</h3>
-              <div style={modelGrid}>
-                <div style={modelItem}>
-                  <p style={modelLabel}>Current Model</p>
-                  <p style={modelValue}>Rule-based Classifier v1.0</p>
+            <div style={{ marginTop: "var(--gap-card)" }}>
+              <Card title={<><I.Sparkles size={14}/> Model information</>}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+                  <div>
+                    <div className="meta-label">Current model</div>
+                    <div className="meta-value" style={{ fontSize: 13 }}>Rule-based Classifier v1.0</div>
+                  </div>
+                  <div>
+                    <div className="meta-label">Features used</div>
+                    <div className="meta-value" style={{ fontSize: 13 }}>URL analysis, Urgency detection, Sender reputation</div>
+                  </div>
+                  <div>
+                    <div className="meta-label">Current threshold</div>
+                    <div className="meta-value mono" style={{ fontSize: 13 }}>{threshold.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="meta-label">Quarantine mode</div>
+                    <div className="meta-value mono" style={{ fontSize: 13 }}>{mode}</div>
+                  </div>
                 </div>
-                <div style={modelItem}>
-                  <p style={modelLabel}>Features Used</p>
-                  <p style={modelValue}>URL Analysis, Urgency Detection, Sender Reputation</p>
-                </div>
-                <div style={modelItem}>
-                  <p style={modelLabel}>Current Threshold</p>
-                  <p style={modelValue}>{threshold.toFixed(2)}</p>
-                </div>
-                <div style={modelItem}>
-                  <p style={modelLabel}>Quarantine Mode</p>
-                  <p style={modelValue}>{quarantineType}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div style={buttonRow}>
-              <button onClick={handleSave} disabled={saving} style={saveButtonStyle}>
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-              <button onClick={handleReset} style={resetButtonStyle}>
-                Reset to Default
-              </button>
+              </Card>
             </div>
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }
-
-const pageWrapper = { minHeight: "100vh", background: "#f8fafc" };
-const contentWrapper = { padding: "24px", maxWidth: "900px", margin: "0 auto" };
-const headerRow = { marginBottom: "24px" };
-const pageTitle = { margin: 0, color: "#0f172a" };
-const pageSubtitle = { marginTop: "8px", color: "#64748b" };
-const sectionCard = { background: "white", borderRadius: "14px", padding: "24px", boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)", border: "1px solid #e2e8f0", marginBottom: "16px" };
-const sectionTitle = { marginTop: 0, color: "#0f172a" };
-const sectionDesc = { color: "#64748b", fontSize: "14px", marginBottom: "20px" };
-const sliderWrapper = { display: "flex", flexDirection: "column", gap: "12px" };
-const sliderLabels = { display: "flex", justifyContent: "space-between", fontSize: "14px" };
-const sliderStyle = { width: "100%", height: "6px", cursor: "pointer", accentColor: "#2563eb" };
-const thresholdDisplay = { textAlign: "center", padding: "12px 0" };
-const riskBadge = { borderRadius: "12px", padding: "16px", marginTop: "8px" };
-const optionGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" };
-const optionButton = { display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "center" };
-const modelGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" };
-const modelItem = { background: "#f8fafc", borderRadius: "10px", padding: "14px", border: "1px solid #e2e8f0" };
-const modelLabel = { margin: 0, fontSize: "13px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.03em" };
-const modelValue = { margin: "8px 0 0 0", color: "#0f172a", fontWeight: "600", fontSize: "14px" };
-const buttonRow = { display: "flex", gap: "12px", flexWrap: "wrap" };
-const saveButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "14px 24px", borderRadius: "10px", cursor: "pointer", fontWeight: "700", fontSize: "15px" };
-const resetButtonStyle = { background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", padding: "14px 24px", borderRadius: "10px", cursor: "pointer", fontWeight: "700", fontSize: "15px" };
-const spinnerWrapper = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0" };
-const spinnerStyle = { width: "40px", height: "40px", border: "4px solid #e2e8f0", borderTop: "4px solid #2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" };
-const successCard = { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "12px", padding: "16px", color: "#166534", marginBottom: "16px" };
-const errorCard = { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "12px", padding: "16px", color: "#b91c1c", marginBottom: "16px" };
 
 export default SettingsPage;

@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import I from "../components/Icons";
+import { Kpi, Card, RiskBar, PageHeader } from "../components/Ui";
 import { getEmails, syncEmails } from "../api/emailService";
-import { Link } from "react-router-dom";
 
 function DashboardPage() {
+  const navigate = useNavigate();
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
 
   const userName = localStorage.getItem("userName") || "User";
@@ -26,174 +28,132 @@ function DashboardPage() {
     }
   };
 
-  useEffect(() => {
-    loadEmails();
-  }, []);
+  useEffect(() => { loadEmails(); }, []);
 
   const handleSync = async () => {
     try {
       setSyncing(true);
       setSyncMessage("");
       const result = await syncEmails();
-      setSyncMessage(`✅ Synced ${result.emails_stored} new emails.`);
+      setSyncMessage(`Synced ${result.emails_stored} new emails.`);
       await loadEmails();
     } catch (err) {
-      setSyncMessage("❌ Sync failed. Check that your email account is linked.");
+      setSyncMessage("Sync failed. Check that your email account is linked.");
     } finally {
       setSyncing(false);
     }
   };
 
-  const totalEmails = emails.length;
-  const quarantinedEmails = emails.filter((e) => e.is_quarantined).length;
-  const highRiskEmails = emails.filter((e) => e.risk_score >= 7).length;
-  const safeEmails = emails.filter((e) => e.verdict === "Safe").length;
-  const recentQuarantined = emails.filter((e) => e.is_quarantined).slice(0, 3);
+  const total = emails.length;
+  const quarantined = emails.filter(e => e.is_quarantined).length;
+  const highRisk = emails.filter(e => e.risk_score >= 7).length;
+  const safe = emails.filter(e => e.verdict === "Safe").length;
+  const recent = emails.filter(e => e.is_quarantined).slice(0, 5);
 
   return (
-    <div style={pageWrapper}>
-      <Navbar />
+    <>
+      <PageHeader
+        crumbs={["Dashboard"]}
+        actions={
+          emailLinked ? (
+            <button className="btn" data-variant="primary" onClick={handleSync} disabled={syncing}>
+              <I.RefreshCw size={14} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+              {syncing ? "Syncing…" : "Sync emails"}
+            </button>
+          ) : (
+            <button className="btn" data-variant="primary" onClick={() => navigate("/link-email")}>
+              <I.AtSign size={14}/> Link your email
+            </button>
+          )
+        }
+      />
 
-      <div style={contentWrapper}>
-        <div style={headerRow}>
-          <div>
-            <h1 style={pageTitle}>Dashboard</h1>
-            <p style={pageSubtitle}>Welcome back, {userName}</p>
-          </div>
-
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
-            {emailLinked ? (
-              <button onClick={handleSync} disabled={syncing} style={syncButtonStyle}>
-                {syncing ? "Syncing..." : "Sync Emails"}
-              </button>
-            ) : (
-              <Link to="/link-email" style={syncButtonStyle}>
-                🔗 Link Your Email Account
-              </Link>
-            )}
-            <Link to="/quarantine" style={actionLink}>
-              View Quarantine List
-            </Link>
-          </div>
-        </div>
+      <div className="page-body">
+        <h1 className="page-title">Welcome back, {userName}</h1>
+        <p className="page-sub">{syncMessage || "Manage your monitored mailboxes"}</p>
 
         {!emailLinked && (
-          <div style={warningCard}>
-            <p style={{ margin: 0 }}>
-              ⚠️ You haven't linked an email account yet.{" "}
-              <Link to="/link-email" style={{ color: "#92400e", fontWeight: "700" }}>
-                Link it here
-              </Link>{" "}
-              to start syncing and monitoring your emails.
-            </p>
+          <div style={{ padding: "14px 18px", background: "var(--sev-medium-bg)", border: "1px solid var(--sev-medium)", borderRadius: "var(--r-md)", marginBottom: 20, color: "var(--text)", display: "flex", alignItems: "center", gap: 10 }}>
+            <I.AlertTriangle size={16} style={{ color: "var(--sev-medium)" }}/>
+            <span style={{ fontSize: 13.5 }}>
+              You haven't linked an email account yet.{" "}
+              <a onClick={() => navigate("/link-email")} style={{ color: "var(--accent)", fontWeight: 500, cursor: "pointer" }}>Link it here</a>{" "}
+              to start syncing.
+            </span>
           </div>
         )}
 
-        {syncMessage && <p style={syncMsgStyle}>{syncMessage}</p>}
-
-        {loading ? (
-          <div style={spinnerWrapper}>
-            <div style={spinnerStyle} />
-            <p style={{ color: "#64748b", marginTop: "16px" }}>Loading emails...</p>
+        {error && (
+          <div style={{ padding: "14px 18px", background: "var(--sev-critical-bg)", border: "1px solid var(--sev-critical)", borderRadius: "var(--r-md)", marginBottom: 20, color: "var(--sev-critical)", fontSize: 13.5 }}>
+            {error}
           </div>
-        ) : error ? (
-          <div style={errorCard}>
-            <p style={{ margin: 0 }}>⚠️ {error}</p>
-          </div>
-        ) : (
-          <>
-            <div style={cardGrid}>
-              <div style={statCard}>
-                <p style={statLabel}>Total Emails</p>
-                <h2 style={statValue}>{totalEmails}</h2>
-              </div>
-              <div style={statCard}>
-                <p style={statLabel}>Quarantined</p>
-                <h2 style={statValue}>{quarantinedEmails}</h2>
-              </div>
-              <div style={statCard}>
-                <p style={statLabel}>High Risk</p>
-                <h2 style={statValue}>{highRiskEmails}</h2>
-              </div>
-              <div style={statCard}>
-                <p style={statLabel}>Marked Safe</p>
-                <h2 style={statValue}>{safeEmails}</h2>
-              </div>
-            </div>
-
-            <div style={sectionCard}>
-              <h3 style={sectionTitle}>Recent Quarantined Emails</h3>
-
-              {recentQuarantined.length === 0 ? (
-                <p style={{ color: "#64748b" }}>
-                  {emailLinked
-                    ? "No quarantined emails yet. Try syncing your emails."
-                    : "Link your email account to start monitoring emails."}
-                </p>
-              ) : (
-                <div style={tableWrapper}>
-                  <table style={tableStyle}>
-                    <thead>
-                      <tr>
-                        <th style={thStyle}>Sender</th>
-                        <th style={thStyle}>Subject</th>
-                        <th style={thStyle}>Inbox</th>
-                        <th style={thStyle}>Risk Score</th>
-                        <th style={thStyle}>Verdict</th>
-                        <th style={thStyle}>Date</th>
-                        <th style={thStyle}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentQuarantined.map((email) => (
-                        <tr key={email.id}>
-                          <td style={tdStyle}>{email.sender}</td>
-                          <td style={tdStyle}>{email.subject}</td>
-                          <td style={tdStyle}>{email.inbox || "—"}</td>
-                          <td style={tdStyle}>{email.risk_score}</td>
-                          <td style={tdStyle}>{email.verdict}</td>
-                          <td style={tdStyle}>{email.date_received}</td>
-                          <td style={tdStyle}>
-                            <Link to={`/email/${email.id}`} style={smallLinkStyle}>
-                              View
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </>
         )}
+
+        <div className="kpi-grid">
+          <Kpi label={<><I.Mail size={11}/> Total emails</>} value={total} />
+          <Kpi label={<><I.Lock size={11}/> Quarantined</>} value={quarantined} />
+          <Kpi label={<><I.AlertTriangle size={11}/> High risk</>} value={highRisk} />
+          <Kpi label={<><I.Check size={11}/> Marked safe</>} value={safe} />
+        </div>
+
+        <Card
+          title={<><I.Lock size={14}/> Recent quarantined emails</>}
+          action={
+            <button className="btn" data-variant="ghost" data-size="sm" onClick={() => navigate("/quarantine")}>
+              View all <I.ChevronRight size={12} />
+            </button>
+          }
+          padded={false}
+        >
+          {loading ? (
+            <div className="empty"><div>Loading emails…</div></div>
+          ) : recent.length === 0 ? (
+            <div className="empty">
+              <I.ShieldCheck size={36}/>
+              <div className="empty-title">No quarantined emails yet</div>
+              <div>{emailLinked ? "Try syncing your emails." : "Link your email account to start monitoring."}</div>
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Sender</th>
+                  <th>Subject</th>
+                  <th>Risk</th>
+                  <th>Verdict</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map(e => (
+                  <tr key={e.id} onClick={() => navigate(`/email/${e.id}`)}>
+                    <td className="cell-sender">
+                      <div className="name">{e.sender}</div>
+                    </td>
+                    <td className="cell-subject">{e.subject}</td>
+                    <td>{e.risk_score != null ? <RiskBar score={e.risk_score} /> : <span className="muted">—</span>}</td>
+                    <td>
+                      <span style={{
+                        fontWeight: 500,
+                        color: e.verdict === "Phishing" ? "var(--sev-critical)"
+                             : e.verdict === "Suspicious" ? "var(--sev-medium)"
+                             : "var(--sev-low)"
+                      }}>{e.verdict}</span>
+                    </td>
+                    <td className="cell-date">{e.date_received}</td>
+                    <td className="cell-actions">
+                      <I.ChevronRight size={14} style={{ color: "var(--text-faint)" }}/>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </div>
-    </div>
+    </>
   );
 }
-
-const pageWrapper = { minHeight: "100vh", background: "#f8fafc" };
-const contentWrapper = { padding: "24px", maxWidth: "1200px", margin: "0 auto" };
-const headerRow = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap", marginBottom: "24px" };
-const pageTitle = { margin: 0, color: "#0f172a" };
-const pageSubtitle = { marginTop: "8px", color: "#64748b" };
-const actionLink = { background: "#0f172a", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: "10px", fontWeight: "600" };
-const syncButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "12px 16px", borderRadius: "10px", fontWeight: "600", cursor: "pointer", textDecoration: "none", display: "inline-block" };
-const syncMsgStyle = { marginBottom: "16px", color: "#334155", fontWeight: "500" };
-const warningCard = { background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: "12px", padding: "16px", color: "#92400e", marginBottom: "16px" };
-const cardGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "24px" };
-const statCard = { background: "white", borderRadius: "14px", padding: "20px", boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)", border: "1px solid #e2e8f0" };
-const statLabel = { margin: 0, color: "#64748b", fontSize: "14px" };
-const statValue = { margin: "10px 0 0 0", fontSize: "32px", color: "#0f172a" };
-const sectionCard = { background: "white", borderRadius: "14px", padding: "20px", boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)", border: "1px solid #e2e8f0" };
-const sectionTitle = { marginTop: 0, color: "#0f172a" };
-const tableWrapper = { overflowX: "auto" };
-const tableStyle = { width: "100%", borderCollapse: "collapse" };
-const thStyle = { textAlign: "left", padding: "12px", borderBottom: "1px solid #e2e8f0", color: "#334155", fontSize: "14px" };
-const tdStyle = { padding: "12px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", color: "#334155" };
-const smallLinkStyle = { color: "#2563eb", textDecoration: "none", fontWeight: "600" };
-const spinnerWrapper = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0" };
-const spinnerStyle = { width: "40px", height: "40px", border: "4px solid #e2e8f0", borderTop: "4px solid #2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" };
-const errorCard = { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "12px", padding: "16px", color: "#b91c1c" };
 
 export default DashboardPage;

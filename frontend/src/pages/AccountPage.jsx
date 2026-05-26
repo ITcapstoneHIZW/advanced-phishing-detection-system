@@ -1,310 +1,164 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
-
-const BASE_URL = "http://localhost:8000";
-
-function getInitials(name) {
-  if (!name) return "?";
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-}
-
-function getAvatarColor(name) {
-  const colors = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c", "#0891b2"];
-  const index = name ? name.charCodeAt(0) % colors.length : 0;
-  return colors[index];
-}
+import I from "../components/Icons";
+import { Card, PageHeader, Sev } from "../components/Ui";
 
 function AccountPage() {
   const navigate = useNavigate();
-  const [account, setAccount] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [name, setName] = useState(localStorage.getItem("userName") || "User");
+  const email = localStorage.getItem("userEmail") || "";
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState("");
+  // In Phase 1 we store a single linked mailbox in localStorage; later
+  // this becomes a list fetched from the backend.
+  const [linkedAccounts, setLinkedAccounts] = useState(() => {
+    if (localStorage.getItem("emailLinked") === "true") {
+      return [{
+        address: localStorage.getItem("gmailAddress") || email,
+        provider: localStorage.getItem("emailProvider") || "google",
+        linked: "Recently",
+      }];
+    }
+    return [];
+  });
 
-  const [unlinkingId, setUnlinkingId] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const handleSignOut = () => {
+    localStorage.clear();
+    navigate("/");
+  };
 
-  const userName = localStorage.getItem("userName") || "";
-
-  useEffect(() => {
-    loadAccount();
-  }, []);
-
-  const loadAccount = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/account`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-      });
-      const data = await response.json();
-      setAccount(data);
-    } catch (err) {
-      setError("Could not load account details.");
-    } finally {
-      setLoading(false);
+  const handleUnlink = (addr) => {
+    setLinkedAccounts(linkedAccounts.filter(a => a.address !== addr));
+    if (linkedAccounts.length === 1) {
+      localStorage.removeItem("emailLinked");
+      localStorage.removeItem("gmailAddress");
+      localStorage.removeItem("emailProvider");
     }
   };
 
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setPasswordError("");
-    setPasswordSuccess("");
-    if (!currentPassword || !newPassword || !confirmNewPassword) {
-      setPasswordError("Please fill in all fields.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordError("New password must be at least 6 characters.");
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setPasswordError("New passwords do not match.");
-      return;
-    }
-    try {
-      setPasswordLoading(true);
-      const response = await fetch(`${BASE_URL}/account/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || "Failed to change password.");
-      }
-      setPasswordSuccess("✅ Password changed successfully.");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmNewPassword("");
-    } catch (err) {
-      setPasswordError(err.message);
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const handleUnlink = async (linkedEmailId) => {
-    if (!window.confirm("Unlink this email? Your synced emails will be kept.")) return;
-    try {
-      setUnlinkingId(linkedEmailId);
-      const response = await fetch(`${BASE_URL}/linked-emails/${linkedEmailId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-      });
-      if (!response.ok) throw new Error("Failed to unlink email.");
-      const updatedLinked = account.linked_emails.filter((l) => l.id !== linkedEmailId);
-      setAccount((prev) => ({ ...prev, linked_emails: updatedLinked }));
-      if (updatedLinked.length === 0) {
-        localStorage.removeItem("emailLinked");
-      }
-      setSuccessMessage("✅ Email unlinked successfully.");
-    } catch (err) {
-      setError("Failed to unlink email.");
-    } finally {
-      setUnlinkingId(null);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    try {
-      setDeleteLoading(true);
-      const response = await fetch(`${BASE_URL}/account`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-      });
-      if (!response.ok) throw new Error("Failed to delete account.");
-      localStorage.clear();
-      navigate("/");
-    } catch (err) {
-      setError("Failed to delete account.");
-      setDeleteLoading(false);
-      setShowDeleteConfirm(false);
-    }
-  };
-
-  const getProviderLabel = (provider) => {
-    if (provider === "gmail") return "Gmail";
-    if (provider === "microsoft") return "Microsoft Outlook";
-    return provider;
-  };
-
-  const getProviderIcon = (provider) => {
-    if (provider === "gmail") return "🔴";
-    if (provider === "microsoft") return "🔵";
-    return "📧";
-  };
+  const providerLogo = (p) => p === "microsoft" ? (
+    <svg viewBox="0 0 24 24" width="20" height="20" style={{ flexShrink: 0 }}>
+      <rect x="3" y="3" width="8" height="8" fill="#f25022"/>
+      <rect x="13" y="3" width="8" height="8" fill="#7fba00"/>
+      <rect x="3" y="13" width="8" height="8" fill="#00a4ef"/>
+      <rect x="13" y="13" width="8" height="8" fill="#ffb900"/>
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" width="20" height="20" style={{ flexShrink: 0 }}>
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.07 5.07 0 0 1-2.2 3.32v2.77h3.56c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.77c-.99.66-2.25 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.12-1.44.34-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.83z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38z"/>
+    </svg>
+  );
 
   return (
-    <div style={pageWrapper}>
-      <Navbar />
-      <div style={contentWrapper}>
-        <h1 style={pageTitle}>Account</h1>
-        <p style={pageSubtitle}>Manage your profile and account settings</p>
-
-        {loading ? (
-          <div style={spinnerWrapper}>
-            <div style={spinnerStyle} />
-            <p style={{ color: "#64748b", marginTop: "16px" }}>Loading account...</p>
-          </div>
-        ) : error ? (
-          <div style={errorCard}><p style={{ margin: 0 }}>⚠️ {error}</p></div>
-        ) : (
+    <>
+      <PageHeader
+        crumbs={["Account"]}
+        actions={
           <>
-            {successMessage && (
-              <div style={successCard}><p style={{ margin: 0 }}>{successMessage}</p></div>
-            )}
+            <button className="btn" data-variant="ghost">Discard</button>
+            <button className="btn" data-variant="primary"><I.Check size={14}/> Save changes</button>
+          </>
+        }
+      />
+      <div className="page-body">
+        <h1 className="page-title">Account</h1>
+        <p className="page-sub">Manage your profile and linked email accounts.</p>
 
-            {/* Profile */}
-            <div style={sectionCard}>
-              <h3 style={sectionTitle}>Profile</h3>
-              <div style={profileRow}>
-                <div style={{ ...avatarStyle, background: getAvatarColor(account?.name) }}>
-                  {getInitials(account?.name)}
-                </div>
-                <div>
-                  <p style={profileName}>{account?.name}</p>
-                  <p style={profileEmail}>{account?.email}</p>
-                  <p style={profileJoined}>Member since {account?.created_at?.split("T")[0]}</p>
-                </div>
+        <div className="col" style={{ gap: "var(--gap-card)", maxWidth: 720 }}>
+
+          <Card title={<><I.User size={14}/> Profile</>}>
+            <div className="row" style={{ gap: 18, marginBottom: 18 }}>
+              <div className="avatar" style={{ width: 56, height: 56, fontSize: 18 }}>
+                {name.split(" ").map(s => s[0]).slice(0, 2).join("")}
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{name}</div>
+                <div className="muted" style={{ fontSize: 12.5 }}>{email}</div>
               </div>
             </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="field">
+                <label>Full name</label>
+                <div className="input"><input value={name} onChange={e => setName(e.target.value)} /></div>
+              </div>
+              <div className="field">
+                <label>Email</label>
+                <div className="input"><input value={email} disabled style={{ color: "var(--text-muted)" }} /></div>
+              </div>
+            </div>
+          </Card>
 
-            {/* Linked Emails */}
-            <div style={sectionCard}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <h3 style={{ ...sectionTitle, margin: 0 }}>Linked Email Accounts</h3>
-                <button onClick={() => navigate("/link-email")} style={addEmailButtonStyle}>
-                  + Add Email
+          <Card
+            title={<><I.AtSign size={14}/> Linked email accounts</>}
+            sub="Mailboxes monitored on your behalf"
+            action={
+              <button className="btn" data-size="sm" onClick={() => navigate("/link-email")}>
+                <I.Plus size={12}/> Link another
+              </button>
+            }
+            padded={false}
+          >
+            {linkedAccounts.length === 0 ? (
+              <div className="between" style={{ padding: "14px 18px" }}>
+                <span className="muted" style={{ fontSize: 13 }}>No mailboxes linked yet.</span>
+                <button className="btn" data-size="sm" data-variant="primary" onClick={() => navigate("/link-email")}>
+                  <I.Plus size={12}/> Link mailbox
                 </button>
               </div>
-
-              {account?.linked_emails?.length === 0 ? (
-                <div style={noEmailBox}>
-                  <p style={{ margin: 0, color: "#64748b" }}>No email accounts linked yet.</p>
-                  <button onClick={() => navigate("/link-email")} style={linkButtonStyle}>
-                    Link Email Account
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {account.linked_emails.map((linked) => (
-                    <div key={linked.id} style={linkedEmailCard}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <span style={{ fontSize: "24px" }}>{getProviderIcon(linked.provider)}</span>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: "600", color: "#0f172a" }}>{linked.email_address}</p>
-                          <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#64748b" }}>
-                            {getProviderLabel(linked.provider)} · Linked {linked.linked_at?.split("T")[0]}
-                          </p>
+            ) : (
+              <div className="col" style={{ gap: 0 }}>
+                {linkedAccounts.map((acc, idx) => (
+                  <div key={acc.address} className="between" style={{
+                    padding: "12px 18px",
+                    borderBottom: idx < linkedAccounts.length - 1 ? "1px solid var(--border-faint)" : "none",
+                    gap: 12,
+                  }}>
+                    <div className="row" style={{ gap: 12, minWidth: 0, flex: 1 }}>
+                      {providerLogo(acc.provider)}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="mono" style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{acc.address}</div>
+                        <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                          {acc.provider === "microsoft" ? "Microsoft" : "Google"} · linked {acc.linked}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleUnlink(linked.id)}
-                        disabled={unlinkingId === linked.id}
-                        style={unlinkButtonStyle}
-                      >
-                        {unlinkingId === linked.id ? "Unlinking..." : "Unlink"}
-                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Change Password */}
-            <div style={sectionCard}>
-              <h3 style={sectionTitle}>Change Password</h3>
-              {passwordSuccess && <div style={successCard}><p style={{ margin: 0 }}>{passwordSuccess}</p></div>}
-              {passwordError && <div style={errorCard}><p style={{ margin: 0 }}>⚠️ {passwordError}</p></div>}
-              <form onSubmit={handleChangePassword}>
-                <div style={fieldWrapper}>
-                  <label style={labelStyle}>Current Password</label>
-                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} style={inputStyle} placeholder="Enter current password" />
-                </div>
-                <div style={fieldWrapper}>
-                  <label style={labelStyle}>New Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} placeholder="Enter new password" />
-                </div>
-                <div style={fieldWrapper}>
-                  <label style={labelStyle}>Confirm New Password</label>
-                  <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} style={inputStyle} placeholder="Confirm new password" />
-                </div>
-                <button type="submit" disabled={passwordLoading} style={saveButtonStyle}>
-                  {passwordLoading ? "Changing..." : "Change Password"}
-                </button>
-              </form>
-            </div>
-
-            {/* Danger Zone */}
-            <div style={{ ...sectionCard, border: "1px solid #fecaca" }}>
-              <h3 style={{ ...sectionTitle, color: "#dc2626" }}>Danger Zone</h3>
-              <p style={{ color: "#64748b", fontSize: "14px" }}>
-                Permanently delete your account and all associated data. This cannot be undone.
-              </p>
-              {!showDeleteConfirm ? (
-                <button onClick={() => setShowDeleteConfirm(true)} style={deleteButtonStyle}>
-                  Delete Account
-                </button>
-              ) : (
-                <div style={deleteConfirmBox}>
-                  <p style={{ margin: "0 0 12px 0", fontWeight: "600", color: "#dc2626" }}>
-                    Are you sure? This will permanently delete your account and all your data.
-                  </p>
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    <button onClick={handleDeleteAccount} disabled={deleteLoading} style={deleteButtonStyle}>
-                      {deleteLoading ? "Deleting..." : "Yes, Delete My Account"}
-                    </button>
-                    <button onClick={() => setShowDeleteConfirm(false)} style={cancelButtonStyle}>
-                      Cancel
-                    </button>
+                    <div className="row" style={{ gap: 8, flexShrink: 0 }}>
+                      <Sev level="low" label="Connected" />
+                      <button className="btn" data-size="sm" data-variant="ghost" onClick={() => handleUnlink(acc.address)}>Unlink</button>
+                    </div>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card title={<><I.Lock size={14}/> Password</>}>
+            <div className="between">
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>Change your password</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>Use a strong, unique passphrase.</div>
+              </div>
+              <button className="btn" data-size="sm">Change password</button>
             </div>
-          </>
-        )}
+          </Card>
+
+          <Card>
+            <div className="between">
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>Sign out</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>End your current session on this device.</div>
+              </div>
+              <button className="btn" data-variant="ghost" onClick={handleSignOut}>
+                <I.LogOut size={13}/> Sign out
+              </button>
+            </div>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
-
-const pageWrapper = { minHeight: "100vh", background: "#f8fafc" };
-const contentWrapper = { padding: "24px", maxWidth: "800px", margin: "0 auto" };
-const pageTitle = { margin: 0, color: "#0f172a" };
-const pageSubtitle = { marginTop: "8px", color: "#64748b", marginBottom: "24px" };
-const sectionCard = { background: "white", borderRadius: "14px", padding: "24px", boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)", border: "1px solid #e2e8f0", marginBottom: "16px" };
-const sectionTitle = { marginTop: 0, color: "#0f172a" };
-const profileRow = { display: "flex", alignItems: "center", gap: "20px" };
-const avatarStyle = { width: "64px", height: "64px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "22px", fontWeight: "700", flexShrink: 0 };
-const profileName = { margin: 0, fontSize: "20px", fontWeight: "700", color: "#0f172a" };
-const profileEmail = { margin: "4px 0 0 0", color: "#64748b" };
-const profileJoined = { margin: "4px 0 0 0", color: "#94a3b8", fontSize: "13px" };
-const linkedEmailCard = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0", flexWrap: "wrap", gap: "12px" };
-const noEmailBox = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0", flexWrap: "wrap", gap: "12px" };
-const addEmailButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "10px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "14px" };
-const linkButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "10px 16px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" };
-const unlinkButtonStyle = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", padding: "8px 14px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "13px" };
-const fieldWrapper = { marginBottom: "16px" };
-const labelStyle = { display: "block", marginBottom: "6px", fontWeight: "600", color: "#334155", fontSize: "14px" };
-const inputStyle = { width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" };
-const saveButtonStyle = { background: "#2563eb", color: "white", border: "none", padding: "12px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" };
-const deleteButtonStyle = { background: "#dc2626", color: "white", border: "none", padding: "12px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "700" };
-const cancelButtonStyle = { background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", padding: "12px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" };
-const deleteConfirmBox = { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "16px" };
-const spinnerWrapper = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0" };
-const spinnerStyle = { width: "40px", height: "40px", border: "4px solid #e2e8f0", borderTop: "4px solid #2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" };
-const successCard = { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "12px", padding: "16px", color: "#166534", marginBottom: "16px" };
-const errorCard = { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "12px", padding: "16px", color: "#b91c1c", marginBottom: "16px" };
 
 export default AccountPage;
