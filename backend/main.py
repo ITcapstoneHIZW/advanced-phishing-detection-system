@@ -253,11 +253,27 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                 db.flush()
                 analysis = AnalysisResult(
                     email_id=new_email.id,
+                    # URL
                     url_count=features["url_count"],
                     has_suspicious_url=features["has_suspicious_url"],
+                    # Urgency
                     has_urgent_language=features["has_urgent_language"],
+                    urgent_word_count=features["urgent_word_count"],
+                    # Sender
                     sender_domain=features["sender_domain"],
                     is_free_email=features["is_free_email"],
+                    has_spoofed_domain=features["has_spoofed_domain"],
+                    # Subject
+                    subject_has_urgent=features["subject_has_urgent"],
+                    # NLP
+                    sentiment_score=features["sentiment_score"],
+                    is_negative_sentiment=features["is_negative_sentiment"],
+                    has_grammar_issues=features["has_grammar_issues"],
+                    grammar_error_ratio=features["grammar_error_ratio"],
+                    # Language
+                    detected_language=features["detected_language"],
+                    is_non_english=features["is_non_english"],
+                    # Score
                     risk_score=scoring["score"],
                     verdict=scoring["verdict"]
                 )
@@ -287,9 +303,32 @@ def get_email(email_id: int, current_user: User = Depends(get_current_user), db:
         "body": email.body,
         "date_received": email.date_received,
         "is_quarantined": email.is_quarantined,
+        "inbox": linked.email_address if linked else None,
+        # Core scoring
         "risk_score": analysis.risk_score if analysis else None,
         "verdict": analysis.verdict if analysis else None,
-        "inbox": linked.email_address if linked else None
+        # URL analysis
+        "url_count": analysis.url_count if analysis else 0,
+        "has_suspicious_url": analysis.has_suspicious_url if analysis else False,
+        # Urgency
+        "has_urgent_language": analysis.has_urgent_language if analysis else False,
+        "urgent_word_count": analysis.urgent_word_count if analysis else 0,
+        # Sender
+        "sender_domain": analysis.sender_domain if analysis else None,
+        "is_free_email": analysis.is_free_email if analysis else False,
+        "has_spoofed_domain": analysis.has_spoofed_domain if analysis else False,
+        # Subject
+        "subject_has_urgent": analysis.subject_has_urgent if analysis else False,
+        # NLP
+        "sentiment_score": analysis.sentiment_score if analysis else None,
+        "is_negative_sentiment": analysis.is_negative_sentiment if analysis else False,
+        "has_grammar_issues": analysis.has_grammar_issues if analysis else False,
+        "grammar_error_ratio": analysis.grammar_error_ratio if analysis else None,
+        # Language
+        "detected_language": analysis.detected_language if analysis else None,
+        "is_non_english": analysis.is_non_english if analysis else False,
+        # Timestamps
+        "analysed_at": str(analysis.analysed_at) if analysis else None,
     }
 
 @app.get("/emails")

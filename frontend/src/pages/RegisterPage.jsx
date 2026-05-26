@@ -29,16 +29,21 @@ function RegisterPage() {
   const canSubmit = pwScore >= 3 && agree;
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setBusy(true);
-      setError("");
-      await registerUser(fullName, emailAddr, password);
-      navigate("/");
-    } catch (err) {
-      setError(err.message);
-    } finally { setBusy(false); }
-  };
+  e.preventDefault();
+  try {
+    setBusy(true);
+    setError("");
+    const data = await registerUser(fullName, emailAddr, password);
+    localStorage.clear();
+    localStorage.setItem("access_token", data.access_token);
+    localStorage.setItem("isAuthenticated", "true");
+    localStorage.setItem("userEmail", data.user.email);
+    localStorage.setItem("userName", data.user.name);
+    navigate("/link-email");
+  } catch (err) {
+    setError(err.message);
+  } finally { setBusy(false); }
+};
 
   return (
     <div className="login-wrap">

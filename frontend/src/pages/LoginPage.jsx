@@ -23,6 +23,7 @@ function LoginPage() {
     setLoading(true);
     setError("");
     const data = await loginUser(email, password);
+    localStorage.clear();
     localStorage.setItem("access_token", data.access_token);
     localStorage.setItem("isAuthenticated", "true");
     localStorage.setItem("userEmail", data.user.email);

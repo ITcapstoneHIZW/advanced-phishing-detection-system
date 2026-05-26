@@ -57,11 +57,34 @@ class AnalysisResult(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email_id = Column(Integer, ForeignKey("emails.id"))
+
+    # URL analysis
     url_count = Column(Integer, default=0)
     has_suspicious_url = Column(Boolean, default=False)
+
+    # Urgent language
     has_urgent_language = Column(Boolean, default=False)
+    urgent_word_count = Column(Integer, default=0)
+
+    # Sender analysis
     sender_domain = Column(String, nullable=True)
     is_free_email = Column(Boolean, default=False)
+    has_spoofed_domain = Column(Boolean, default=False)
+
+    # Subject
+    subject_has_urgent = Column(Boolean, default=False)
+
+    # NLP
+    sentiment_score = Column(Float, default=0.0)
+    is_negative_sentiment = Column(Boolean, default=False)
+    has_grammar_issues = Column(Boolean, default=False)
+    grammar_error_ratio = Column(Float, default=0.0)
+
+    # Language
+    detected_language = Column(String, nullable=True)
+    is_non_english = Column(Boolean, default=False)
+
+    # Overall scoring
     risk_score = Column(Float, default=0.0)
     verdict = Column(String, nullable=True)
     analysed_at = Column(DateTime(timezone=True), server_default=func.now())
