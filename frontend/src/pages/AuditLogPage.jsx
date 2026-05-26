@@ -25,19 +25,16 @@ function severityTone(sev) {
   return { info: "low", warning: "medium", critical: "critical" }[sev] || "low";
 }
 
-function ActionIcon({ action }) {
-  const meta = ACTION_META[action];
-  const iconName = meta?.icon || "Activity";
-  const tone = meta?.tone || "low";
-  const I2 = require("../components/Icons").default;
-  const IconComp = I2[iconName] || I2.Activity;
+function ActionIcon({ action, tone }) {
+  const iconName = ACTION_META[action]?.icon || "Activity";
+  const IconComp = I[iconName] || I.Activity;
   return (
     <div style={{
-      width: 30, height: 30, borderRadius: "var(--r-md)", flexShrink: 0,
-      background: `var(--sev-${tone}-bg)`, border: `1px solid var(--sev-${tone})`,
+      width: 28, height: 28, borderRadius: "var(--r-md)", flexShrink: 0,
+      background: `var(--sev-${tone}-bg)`,
       display: "grid", placeItems: "center", color: `var(--sev-${tone})`,
     }}>
-      <IconComp size={14} />
+      <IconComp size={13}/>
     </div>
   );
 }
@@ -93,8 +90,8 @@ export default function AuditLogPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const exportCSV = () => {
-    const rows = [["ID", "Action", "Entity Type", "Entity ID", "Detail", "Severity", "Timestamp"]];
-    filtered.forEach(l => rows.push([l.id, l.action, l.entity_type, l.entity_id, l.detail, l.severity, l.timestamp]));
+    const rows = [["ID", "Action", "Actor", "Entity Type", "Entity ID", "Detail", "Severity", "Timestamp"]];
+    filtered.forEach(l => rows.push([l.id, l.action, l.user_email, l.entity_type, l.entity_id, l.detail, l.severity, l.timestamp]));
     const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "audit-log.csv"; a.click();
@@ -183,15 +180,7 @@ export default function AuditLogPage() {
                     const tone = meta?.tone || severityTone(log.severity);
                     return (
                       <tr key={log.id}>
-                        <td>
-                          <div style={{
-                            width: 28, height: 28, borderRadius: "var(--r-md)", flexShrink: 0,
-                            background: `var(--sev-${tone}-bg)`,
-                            display: "grid", placeItems: "center", color: `var(--sev-${tone})`,
-                          }}>
-                            <I.Activity size={13}/>
-                          </div>
-                        </td>
+                        <td><ActionIcon action={log.action} tone={tone} /></td>
                         <td>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>
                             {meta?.label || log.action}
@@ -200,7 +189,12 @@ export default function AuditLogPage() {
                             {log.action}
                           </div>
                         </td>
-                        <td style={{ maxWidth: 320, color: "var(--text-secondary)", fontSize: 13 }}>
+                        <td>
+                          <div style={{ fontSize: 12.5, fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                            {log.user_email || "—"}
+                          </div>
+                        </td>
+                        <td style={{ maxWidth: 280, color: "var(--text-secondary)", fontSize: 13 }}>
                           {log.detail || "—"}
                         </td>
                         <td>

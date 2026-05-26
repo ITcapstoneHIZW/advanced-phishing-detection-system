@@ -456,6 +456,7 @@ def get_audit_logs(
             {
                 "id": log.id,
                 "action": log.action,
+                "user_email": log.user_email,
                 "entity_type": log.entity_type,
                 "entity_id": log.entity_id,
                 "detail": log.detail,
@@ -488,7 +489,7 @@ def change_password(data: dict, current_user: User = Depends(get_current_user), 
     new_password = data.get("new_password")
     if not verify_password(current_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    if len(new_password) < 6:
+    if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
     current_user.hashed_password = hash_password(new_password)
     db.commit()
