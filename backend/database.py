@@ -1,14 +1,17 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Create a SQLite database file called phishing.db in the current folder
-DATABASE_URL = "sqlite:///./phishing.db"
+# Get the database URL from the environment variable Railway provides
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# The engine is the connection between python and the database
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+# Railway gives a URL starting with "postgres://" but SQLAlchemy needs "postgresql://"
+# This line fixes that automatically
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# The engine is the connection between Python and the database
+engine = create_engine(DATABASE_URL)
 
 # A temporary connection used to talk with the database
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
