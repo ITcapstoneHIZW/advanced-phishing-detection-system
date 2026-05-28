@@ -173,7 +173,7 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
         <div className="foot-meta">
           <div className="foot-name">{localStorage.getItem("userName") || "User"}</div>
 
-          <div className="foot-role">Admin · victoria.edu.au</div>
+          <div className="foot-role">{localStorage.getItem("userEmail") || ""}</div>
         </div>
         <button
           className="btn"
