@@ -38,16 +38,72 @@ export async function loginUser(email, password) {
   return await response.json();
 }
 
-export async function linkGmail(gmail_address, gmail_app_password) {
-  const response = await fetch(`${BASE_URL}/link-email`, {
+export async function getMe() {
+  const response = await fetch(`${BASE_URL}/me`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch user");
+  return await response.json();
+}
+
+// --- OAuth ---
+export async function startGmailOAuth() {
+  const response = await fetch(`${BASE_URL}/auth/gmail`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to start Gmail OAuth");
+  return await response.json();
+}
+
+export async function saveGmailCredentials(gmail_address, credentials) {
+  const response = await fetch(`${BASE_URL}/auth/save-gmail`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ gmail_address, gmail_app_password }),
+    body: JSON.stringify({ gmail_address, credentials }),
   });
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to link Gmail");
+    throw new Error(error.detail || "Failed to save Gmail credentials");
   }
+  return await response.json();
+}
+
+export async function startMicrosoftOAuth() {
+  const response = await fetch(`${BASE_URL}/auth/microsoft`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to start Microsoft OAuth");
+  return await response.json();
+}
+
+export async function saveMicrosoftCredentials(email_address, credentials) {
+  const response = await fetch(`${BASE_URL}/auth/save-microsoft`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ email_address, credentials }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to save Microsoft credentials");
+  }
+  return await response.json();
+}
+
+// --- Linked emails ---
+export async function getLinkedEmails() {
+  const response = await fetch(`${BASE_URL}/linked-emails`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch linked emails");
+  return await response.json();
+}
+
+export async function unlinkEmail(id) {
+  const response = await fetch(`${BASE_URL}/linked-emails/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to unlink email");
   return await response.json();
 }
 
@@ -106,5 +162,67 @@ export async function submitFeedback(id, verdict) {
     body: JSON.stringify({ verdict }),
   });
   if (!response.ok) throw new Error("Failed to submit feedback");
+  return await response.json();
+}
+
+// --- Sensitivity settings ---
+export async function getSensitivity() {
+  const response = await fetch(`${BASE_URL}/settings/sensitivity`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch sensitivity settings");
+  return await response.json();
+}
+
+export async function updateSensitivity(threshold, quarantine_type) {
+  const response = await fetch(`${BASE_URL}/settings/sensitivity`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ threshold, quarantine_type }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to update sensitivity");
+  }
+  return await response.json();
+}
+
+// --- Audit logs ---
+export async function getAuditLogs(limit = 100, offset = 0) {
+  const response = await fetch(`${BASE_URL}/audit-logs?limit=${limit}&offset=${offset}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch audit logs");
+  return await response.json();
+}
+
+// --- Account ---
+export async function getAccount() {
+  const response = await fetch(`${BASE_URL}/account`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch account");
+  return await response.json();
+}
+
+export async function changePassword(current_password, new_password) {
+  const response = await fetch(`${BASE_URL}/account/change-password`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ current_password, new_password }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to change password");
+  }
+  return await response.json();
+}
+
+export async function deleteAccount() {
+  const response = await fetch(`${BASE_URL}/account`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to delete account");
   return await response.json();
 }
