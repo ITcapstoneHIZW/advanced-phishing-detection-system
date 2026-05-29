@@ -25,12 +25,16 @@ from microsoft_oauth_service import (
 from pydantic import BaseModel
 from typing import Optional
 import json
+import os
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        os.environ.get("FRONTEND_URL", ""),
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -107,7 +111,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     logger.info(f"Login attempt for {request.email}")
     user = authenticate_user(db, request.email, request.password)
     if not user:
-        # Log failed login — use a stub user object
+        # Log failed login - use a stub user object
         try:
             log = AuditLog(user_email=request.email, action="login_failed", entity_type="account", detail=f"Failed login attempt for {request.email}", severity="warning")
             db.add(log)
@@ -142,11 +146,11 @@ def gmail_callback(code: str, state: str, db: Session = Depends(get_db)):
         credentials = google_exchange_code(code, state)
         gmail_address = get_google_user_info(credentials)
         creds_json = json.dumps(credentials)
-        frontend_url = f"http://localhost:5173/link-email?success=true&gmail={gmail_address}&creds={creds_json}&provider=gmail"
+        frontend_url = f"{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/link-email?success=true&gmail={gmail_address}&creds={creds_json}&provider=gmail"
         return RedirectResponse(url=frontend_url)
     except Exception as e:
         logger.error(f"Google OAuth callback error: {e}")
-        return RedirectResponse(url="http://localhost:5173/link-email?error=true")
+        return RedirectResponse(url=f"{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/link-email?error=true")
 
 @app.post("/auth/save-gmail")
 def save_gmail(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -183,11 +187,11 @@ def microsoft_callback(code: str, state: str, db: Session = Depends(get_db)):
         credentials = microsoft_exchange_code(code)
         email_address = get_microsoft_user_info(credentials["access_token"])
         creds_json = json.dumps(credentials)
-        frontend_url = f"http://localhost:5173/link-email?success=true&gmail={email_address}&creds={creds_json}&provider=microsoft"
+        frontend_url = f"{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/link-email?success=true&gmail={email_address}&creds={creds_json}&provider=microsoft"
         return RedirectResponse(url=frontend_url)
     except Exception as e:
         logger.error(f"Microsoft OAuth callback error: {e}")
-        return RedirectResponse(url="http://localhost:5173/link-email?error=true")
+        return RedirectResponse(url=f"{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/link-email?error=true")
 
 @app.post("/auth/save-microsoft")
 def save_microsoft(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
