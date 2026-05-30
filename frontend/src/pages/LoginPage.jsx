@@ -1,3 +1,4 @@
+import BASE_URL from "../api/config";
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import I from "../components/Icons";
@@ -31,7 +32,7 @@ function LoginPage() {
 
     // Don't let /me failure block navigation
     try {
-      const meRes = await fetch("http://localhost:8000/me", {
+      const meRes = await fetch(`${BASE_URL}/me`, {
         headers: { Authorization: `Bearer ${data.access_token}` },
       });
       const meData = await meRes.json();

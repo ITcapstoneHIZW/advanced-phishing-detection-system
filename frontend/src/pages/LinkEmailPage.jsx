@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import I from "../components/Icons";
 import { BrandMark, Sev } from "../components/Ui";
 
-const BASE_URL = "http://localhost:8000";
+import BASE_URL from "../api/config";
 
 // Progress bar steps
 function ProgressBar({ step }) {

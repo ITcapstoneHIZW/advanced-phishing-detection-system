@@ -3,7 +3,7 @@ import I from "../components/Icons";
 import { Card, PageHeader } from "../components/Ui";
 import { getEmails } from "../api/emailService";
 
-const BASE_URL = "http://localhost:8000";
+import BASE_URL from "../api/config";
 
 // === Risk score histogram ===
 function ScoreHistogram({ emails, threshold }) {

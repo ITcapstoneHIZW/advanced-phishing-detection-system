@@ -1,3 +1,4 @@
+import BASE_URL from "../api/config";
 import React, { useState, useEffect } from "react";
 import I from "../components/Icons";
 import { Card, PageHeader } from "../components/Ui";
@@ -61,7 +62,7 @@ export default function AuditLogPage() {
       setError("");
       const token = localStorage.getItem("access_token");
       const offset = (pg - 1) * PAGE_SIZE;
-      const res = await fetch(`http://localhost:8000/audit-logs?limit=${PAGE_SIZE}&offset=${offset}`, {
+      const res = await fetch(`${BASE_URL}/audit-logs?limit=${PAGE_SIZE}&offset=${offset}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch audit logs");

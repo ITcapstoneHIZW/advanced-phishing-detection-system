@@ -1,3 +1,4 @@
+import BASE_URL from "./api/config";
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
@@ -26,7 +27,7 @@ function ShellLayout({ children }) {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
-    fetch("http://localhost:8000/emails", {
+    fetch(`${BASE_URL}/emails`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())

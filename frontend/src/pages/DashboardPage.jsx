@@ -1,3 +1,4 @@
+import BASE_URL from "../api/config";
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import I from "../components/Icons";
@@ -178,7 +179,7 @@ function DashboardPage() {
     loadEmails();
     // Fetch recent audit logs for activity feed
     const token = localStorage.getItem("access_token");
-    fetch("http://localhost:8000/audit-logs?limit=10", {
+    fetch(`${BASE_URL}/audit-logs?limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())

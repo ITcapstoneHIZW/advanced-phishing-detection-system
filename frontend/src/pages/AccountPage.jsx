@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import I from "../components/Icons";
 import { Card, PageHeader, Sev, ConfirmModal } from "../components/Ui";
 
-const BASE_URL = "http://localhost:8000";
+import BASE_URL from "../api/config";
 
 function AccountPage() {
   const navigate = useNavigate();
