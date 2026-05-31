@@ -26,6 +26,12 @@ from pydantic import BaseModel
 from typing import Optional
 import json
 import os
+import nltk
+for pkg in ["punkt", "punkt_tab"]:
+    try:
+        nltk.download(pkg, quiet=True)
+    except Exception:
+        pass
 
 app = FastAPI()
 
