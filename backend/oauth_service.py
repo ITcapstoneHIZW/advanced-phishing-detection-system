@@ -12,7 +12,7 @@ SCOPES = [
 ]
 
 CLIENT_SECRETS_FILE = os.path.join(os.path.dirname(__file__), "client_secret.json")
-REDIRECT_URI = "http://localhost:8000/auth/callback"
+REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/callback")
 
 # Store flow state in memory between redirect and callback
 flow_store = {}

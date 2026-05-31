@@ -7,7 +7,7 @@ load_dotenv()
 CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
 CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
 TENANT_ID = os.getenv("MICROSOFT_TENANT_ID")
-REDIRECT_URI = "http://localhost:8000/auth/microsoft/callback"
+REDIRECT_URI = os.environ.get("MICROSOFT_REDIRECT_URI", "http://localhost:8000/auth/microsoft/callback")
 
 AUTHORITY = f"https://login.microsoftonline.com/common"
 SCOPES = ["Mail.Read", "User.Read", "offline_access"]
