@@ -1,7 +1,7 @@
 import re
 from textblob import TextBlob
 from langdetect import detect, LangDetectException
-
+ 
 def extract_features(email_data):
     features = {}
     
@@ -9,7 +9,7 @@ def extract_features(email_data):
     subject = email_data.get("subject", "")
     sender = email_data.get("sender", "")
     combined_text = subject + " " + body
-
+ 
     # --- URL Analysis ---
     urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', body)
     features["url_count"] = len(urls)
@@ -17,7 +17,7 @@ def extract_features(email_data):
         word in url.lower() for url in urls 
         for word in ["login", "verify", "account", "secure", "update", "confirm", "reset", "password", "bank"]
     )
-
+ 
     # --- Urgent Language ---
     urgent_words = [
         "urgent", "immediately", "act now", "verify your account",
@@ -33,7 +33,7 @@ def extract_features(email_data):
     features["urgent_word_count"] = sum(
         1 for word in urgent_words if word in combined_text.lower()
     )
-
+ 
     # --- Sender Analysis ---
     sender_domain = re.findall(r'@([a-zA-Z0-9.-]+)', sender)
     features["sender_domain"] = sender_domain[0] if sender_domain else "unknown"
@@ -41,7 +41,7 @@ def extract_features(email_data):
         domain in features["sender_domain"] 
         for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com"]
     )
-
+ 
     # Check for domain spoofing (e.g. paypaI.com instead of paypal.com)
     spoofed_brands = ["paypal", "microsoft", "google", "apple", "amazon", "netflix", "bank"]
     features["has_spoofed_domain"] = any(
@@ -49,19 +49,19 @@ def extract_features(email_data):
     ) and not any(
         features["sender_domain"].lower().endswith(f"{brand}.com") for brand in spoofed_brands
     )
-
+ 
     # --- Subject Analysis ---
     features["subject_has_re_fwd"] = subject.lower().startswith(("re:", "fwd:"))
     features["subject_length"] = len(subject)
     features["subject_has_urgent"] = any(word in subject.lower() for word in urgent_words)
-
+ 
     # --- NLP Sentiment Analysis ---
     blob = TextBlob(combined_text)
     sentiment = blob.sentiment.polarity
     features["sentiment_score"] = round(sentiment, 3)
     # Phishing emails tend to have very negative or very manipulative tone
     features["is_negative_sentiment"] = sentiment < -0.1
-
+ 
     # --- Grammar Error Detection ---
     words = re.findall(r'\b[a-zA-Z]+\b', combined_text)
     total_words = len(words) if words else 1
@@ -69,7 +69,7 @@ def extract_features(email_data):
     misspelled = [word for word in words if len(word) > 3 and word.lower() not in blob.words]
     features["grammar_error_ratio"] = round(len(misspelled) / total_words, 3)
     features["has_grammar_issues"] = features["grammar_error_ratio"] > 0.3
-
+ 
     # --- Language Detection ---
     try:
         language = detect(combined_text)
@@ -78,57 +78,112 @@ def extract_features(email_data):
     except LangDetectException:
         features["detected_language"] = "unknown"
         features["is_non_english"] = False
-
+ 
     # --- Body Analysis ---
     features["body_length"] = len(body)
     features["has_short_body"] = len(body) < 50
-
+ 
     return features
-
-
+ 
+ 
 def calculate_phishing_score(features):
+    """Rule-based phishing score (0-10). Kept as the fallback if ML isn't available."""
     score = 0
-
+ 
     # URL signals
     if features["has_suspicious_url"]:
         score += 2.5
     if features["url_count"] > 3:
         score += 1.0
-
+ 
     # Urgent language signals
     if features["has_urgent_language"]:
         score += 1.5
     if features["urgent_word_count"] > 3:
         score += 1.0
-
+ 
     # Sender signals
     if features["has_spoofed_domain"]:
         score += 2.0
     if features["is_free_email"]:
         score += 0.5
-
+ 
     # NLP signals
     if features["is_negative_sentiment"]:
         score += 0.5
     if features["has_grammar_issues"]:
         score += 0.5
-
+ 
     # Subject signals
     if features["subject_has_urgent"]:
         score += 0.5
-
+ 
     # Language signals
     if features["is_non_english"]:
         score += 0.5
-
+ 
     # Cap at 10
     score = min(round(score, 1), 10)
-
+ 
     if score >= 7:
         verdict = "Phishing"
     elif score >= 4:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
-
+ 
     return {"score": score, "verdict": verdict}
+ 
+ 
+def calculate_combined_score(features, email_text=None):
+    """
+    Hybrid scorer: combines rule-based scoring with the ML model's prediction.
+ 
+    We take the MAX of the two scores — meaning if either system flags an email
+    as risky, we treat it as risky. This is the cautious choice and is easy to
+    defend ("we use ML to catch what rules miss, and rules to catch what ML
+    misses").
+ 
+    Falls back to rules-only if the ML model isn't loaded or fails.
+ 
+    Returns the same shape as calculate_phishing_score() plus a few diagnostic
+    fields so we can see how each signal contributed.
+    """
+    rule_result = calculate_phishing_score(features)
+    rule_score = rule_result["score"]
+ 
+    ml_score_scaled = None
+    if email_text:
+        # Lazy import so the rest of feature_extractor still works if
+        # ml_predictor has any issue (joblib missing, etc.)
+        try:
+            from services.ml_predictor import predict_phishing_ml
+            ml_result = predict_phishing_ml(email_text)
+            if ml_result is not None:
+                # ML returns 0-1, scale to match rule scoring's 0-10 range
+                ml_score_scaled = ml_result["risk_score"] * 10
+        except Exception:
+            ml_score_scaled = None
+ 
+    if ml_score_scaled is not None:
+        final_score = max(rule_score, ml_score_scaled)
+    else:
+        final_score = rule_score
+ 
+    final_score = min(round(final_score, 1), 10)
+ 
+    if final_score >= 7:
+        verdict = "Phishing"
+    elif final_score >= 4:
+        verdict = "Suspicious"
+    else:
+        verdict = "Safe"
+ 
+    return {
+        "score": final_score,
+        "verdict": verdict,
+        # Diagnostic fields — handy for the demo, can be logged or shown in UI
+        "rule_score": rule_score,
+        "ml_score": round(ml_score_scaled, 1) if ml_score_scaled is not None else None,
+        "used_ml": ml_score_scaled is not None,
+    }
