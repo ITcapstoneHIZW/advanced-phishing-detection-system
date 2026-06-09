@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import engine, Base, SessionLocal
 from models import Email, AnalysisResult, User, LinkedEmail, SensitivityConfig, AuditLog
 from logger import logger
-from services.feature_extractor import extract_features, calculate_phishing_score
+from services.feature_extractor import extract_features, calculate_combined_score
 from fastapi.middleware.cors import CORSMiddleware
 from auth import (
     hash_password, create_access_token, authenticate_user,
