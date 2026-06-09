@@ -279,7 +279,7 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                 if parsed["subject"] in existing_subjects:
                     continue
                 features = extract_features(parsed)
-                scoring = calculate_phishing_score(features)
+                scoring = calculate_combined_score(features, email_text=parsed["body"])
                 quarantined = scoring["verdict"] in ("Phishing", "Suspicious")
                 new_email = Email(
                     user_id=current_user.id,
