@@ -131,6 +131,144 @@ function RenderedHtmlBody({ html }) {
   );
 }
 
+
+// === "Why was this flagged?" explanation builder ===
+// Turns the raw analysis flags into plain-language reasons. Only lists signals
+// that ACTUALLY fired, so the explanation is always truthful to the data.
+function buildReasons(email) {
+  const reasons = [];
+
+  if (email.has_suspicious_url) {
+    reasons.push({
+      tone: "critical",
+      title: "Suspicious link detected",
+      detail: "A link in this email uses wording often seen in phishing (e.g. login, verify, account, secure).",
+    });
+  }
+  if (email.has_spoofed_domain) {
+    reasons.push({
+      tone: "critical",
+      title: "Possible spoofed sender domain",
+      detail: `The sender domain (${email.sender_domain || "unknown"}) resembles a known brand but isn't its official domain — a common impersonation tactic.`,
+    });
+  }
+  if (email.url_count > 3) {
+    reasons.push({
+      tone: "high",
+      title: "Unusually high number of links",
+      detail: `This email contains ${email.url_count} links, which is higher than typical legitimate mail.`,
+    });
+  }
+  if (email.has_urgent_language) {
+    reasons.push({
+      tone: "high",
+      title: "Urgent or pressuring language",
+      detail: `The message uses ${email.urgent_word_count || "several"} urgency trigger${email.urgent_word_count === 1 ? "" : "s"} (e.g. "act now", "account suspended") designed to make you act quickly without thinking.`,
+    });
+  }
+  if (email.subject_has_urgent) {
+    reasons.push({
+      tone: "high",
+      title: "Urgent language in the subject line",
+      detail: "The subject itself uses pressure wording, a frequent phishing characteristic.",
+    });
+  }
+  if (email.is_free_email) {
+    reasons.push({
+      tone: "medium",
+      title: "Sent from a free email provider",
+      detail: "Organisations usually email from their own domain, not a free provider like Gmail or Outlook.",
+    });
+  }
+  if (email.has_grammar_issues) {
+    reasons.push({
+      tone: "medium",
+      title: "Notable grammar and spelling issues",
+      detail: "A high rate of grammatical errors is commonly associated with phishing attempts.",
+    });
+  }
+  if (email.is_negative_sentiment) {
+    reasons.push({
+      tone: "medium",
+      title: "Threatening or negative tone",
+      detail: "The message's tone leans negative or threatening, often used to create fear or urgency.",
+    });
+  }
+  if (email.is_non_english) {
+    reasons.push({
+      tone: "low",
+      title: "Unexpected language",
+      detail: `The message was detected as ${email.detected_language || "non-English"}, which may be unexpected for your inbox.`,
+    });
+  }
+
+  return reasons;
+}
+
+function WhyFlagged({ email }) {
+  const reasons = buildReasons(email);
+  const verdict = email.verdict || "Unknown";
+  const isFlagged = verdict === "Phishing" || verdict === "Suspicious";
+
+  // Headline sentence
+  let headline;
+  if (!isFlagged) {
+    headline = "This email was assessed as Safe. No significant phishing indicators were found.";
+  } else if (reasons.length > 0) {
+    const top = reasons.slice(0, 3).map(r => r.title.toLowerCase());
+    const joined = top.length === 1
+      ? top[0]
+      : top.slice(0, -1).join(", ") + " and " + top[top.length - 1];
+    headline = `This email was flagged as ${verdict} because it shows ${joined}.`;
+  } else {
+    // Flagged but no rule-based reason fired -> the ML model drove the decision
+    headline = `This email was flagged as ${verdict} by our machine-learning model based on patterns it recognised in the message.`;
+  }
+
+  return (
+    <Card title={<><I.ShieldAlert size={14}/> Why was this flagged?</>}>
+      <div style={{
+        fontSize: 14, lineHeight: 1.6, color: "var(--text)", marginBottom: reasons.length ? 14 : 0,
+        padding: "10px 12px", background: isFlagged ? "var(--sev-high-bg)" : "var(--sev-low-bg)",
+        borderRadius: "var(--r-sm)", border: `1px solid ${isFlagged ? "var(--sev-high)" : "var(--sev-low)"}`
+      }}>
+        {headline}
+      </div>
+
+      {reasons.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {reasons.map((r, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span className="sev-dot" style={{ background: `var(--sev-${r.tone})`, marginTop: 6, flexShrink: 0 }}></span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{r.title}</div>
+                <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5, marginTop: 1 }}>{r.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Honest ML attribution: don't fabricate feature-level reasons for the model */}
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-faint)", fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+        {email.used_ml ? (
+          <>
+            <strong style={{ color: "var(--text)" }}>Machine-learning assessment:</strong> our trained model
+            independently reviewed this email and assigned it a risk score of{" "}
+            <strong style={{ color: "var(--text)" }}>{email.ml_score != null ? Number(email.ml_score).toFixed(1) : "—"}/10</strong>.
+            The final score combines this with the rule-based checks above.
+          </>
+        ) : (
+          <>
+            <strong style={{ color: "var(--text)" }}>Rule-based assessment:</strong> this email was scored using the
+            detection rules above. The machine-learning model did not score this message (no readable text body was available).
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 // === Main page ===
 function EmailDetailsPage() {
   const { id } = useParams();
@@ -301,6 +439,9 @@ function EmailDetailsPage() {
 
             {/* Left column */}
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-card)" }}>
+
+              {/* Why was this flagged */}
+              <WhyFlagged email={email} />
 
               {/* Header metadata */}
               <Card>
