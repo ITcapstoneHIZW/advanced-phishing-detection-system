@@ -63,7 +63,7 @@ function FlagChip({ label, tone }) {
   );
 }
 
-// === Highlighted body ===
+// === Highlighted body (plain text) ===
 const URGENT_WORDS = [
   "urgent", "immediately", "act now", "verify your account",
   "suspended", "unusual activity", "click here", "limited time",
@@ -89,6 +89,48 @@ function HighlightedBody({ body }) {
   );
 }
 
+// === Rendered HTML body (sandboxed) ===
+// Renders the real email HTML inside a sandboxed iframe so nothing in the email
+// can run scripts, access the app, or break out of its box. Remote images are
+// blocked by a Content-Security-Policy injected into the iframe document, the
+// same way real mail clients block remote content by default (it stops the
+// email from "phoning home" when opened).
+function RenderedHtmlBody({ html }) {
+  if (!html) {
+    return <span className="muted">No HTML version available for this email.</span>;
+  }
+
+  // CSP blocks scripts and remote image/resource loading inside the iframe.
+  const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:;">`;
+  const baseStyle = `<style>
+    body { font-family: -apple-system, system-ui, sans-serif; color: #1a1a1a; background: #fff; margin: 0; padding: 12px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+    a { color: #2563eb; }
+    img { max-width: 100%; height: auto; }
+  </style>`;
+  const srcDoc = `<!DOCTYPE html><html><head>${csp}${baseStyle}</head><body>${html}</body></html>`;
+
+  return (
+    <div>
+      <div style={{
+        fontSize: 11.5, color: "var(--text-muted)", marginBottom: 8,
+        display: "flex", alignItems: "center", gap: 5
+      }}>
+        <I.ShieldCheck size={11} />
+        Rendered in a sandbox. Scripts disabled and remote images blocked for safety.
+      </div>
+      <iframe
+        title="Email content"
+        sandbox=""
+        srcDoc={srcDoc}
+        style={{
+          width: "100%", minHeight: 320, border: "1px solid var(--border-faint)",
+          borderRadius: "var(--r-md)", background: "#fff"
+        }}
+      />
+    </div>
+  );
+}
+
 // === Main page ===
 function EmailDetailsPage() {
   const { id } = useParams();
@@ -99,7 +141,8 @@ function EmailDetailsPage() {
   const [actionLoading, setActionLoading] = useState("");
   const [toast, setToast] = useState("");
   const [showRawHeaders, setShowRawHeaders] = useState(false);
-  const [confirm, setConfirm] = useState(null); // { title, message, confirmLabel, confirmTone, onConfirm }
+  const [bodyView, setBodyView] = useState("analysis"); // "analysis" (highlighted text) | "rendered" (HTML)
+  const [confirm, setConfirm] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -110,6 +153,9 @@ function EmailDetailsPage() {
         setError("");
         const data = await getEmailById(id);
         setEmail(data);
+        // Default to the analysis (highlighted) view, but if there's no plain
+        // body and we do have HTML, start on the rendered view instead.
+        if (!data.body && data.body_html) setBodyView("rendered");
       } catch {
         setError("Could not load email details.");
       } finally {
@@ -128,7 +174,7 @@ function EmailDetailsPage() {
         setConfirm(null);
         try {
           setActionLoading("release");
-      await releaseEmail(id);
+          await releaseEmail(id);
           setEmail(prev => ({ ...prev, is_quarantined: false }));
           showToast("Email released from quarantine.");
         } catch { setError("Failed to release email."); }
@@ -169,7 +215,7 @@ function EmailDetailsPage() {
         setConfirm(null);
         try {
           setActionLoading(verdict);
-      await submitFeedback(id, verdict);
+          await submitFeedback(id, verdict);
           setEmail(prev => ({ ...prev, verdict }));
           showToast(`Email marked as ${verdict}.`);
         } catch { setError("Failed to submit feedback."); }
@@ -178,7 +224,6 @@ function EmailDetailsPage() {
     });
   };
 
-  // Build detection flags from analysis data
   const flags = email ? [
     email.has_suspicious_url && { label: "Suspicious URL", tone: "critical" },
     email.has_spoofed_domain && { label: "Domain spoof", tone: "critical" },
@@ -190,7 +235,6 @@ function EmailDetailsPage() {
     email.is_non_english && { label: `Non-English (${email.detected_language})`, tone: "low" },
   ].filter(Boolean) : [];
 
-  // Build score breakdown by category
   const breakdown = email ? [
     {
       label: "Link analysis",
@@ -231,14 +275,14 @@ function EmailDetailsPage() {
 
       <div className="page-body">
         <ConfirmModal
-        title={confirm?.title}
-        message={confirm?.message}
-        confirmLabel={confirm?.confirmLabel}
-        confirmTone={confirm?.confirmTone}
-        onConfirm={confirm?.onConfirm}
-        onCancel={() => setConfirm(null)}
-      />
-      {toast && (
+          title={confirm?.title}
+          message={confirm?.message}
+          confirmLabel={confirm?.confirmLabel}
+          confirmTone={confirm?.confirmTone}
+          onConfirm={confirm?.onConfirm}
+          onCancel={() => setConfirm(null)}
+        />
+        {toast && (
           <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 1000, background: "var(--text)", color: "var(--bg-elevated)", padding: "10px 16px", borderRadius: "var(--r-md)", fontSize: 13, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", fontWeight: 500 }}>
             {toast}
           </div>
@@ -312,17 +356,41 @@ function EmailDetailsPage() {
                 </div>
               </Card>
 
-              {/* Message body */}
+              {/* Message body — with view toggle */}
               <Card
                 title={<><I.FileText size={14}/> Message body</>}
                 action={
-                  <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
-                    <I.AlertTriangle size={11} style={{ verticalAlign: -1, marginRight: 3 }}/>
-                    Highlighted phrases indicate detected triggers
-                  </span>
+                  <div style={{ display: "flex", gap: 4, background: "var(--bg-sunken)", padding: 3, borderRadius: "var(--r-sm)" }}>
+                    <button
+                      className="btn" data-size="sm"
+                      data-variant={bodyView === "analysis" ? "primary" : "ghost"}
+                      onClick={() => setBodyView("analysis")}
+                    >
+                      Analysis
+                    </button>
+                    <button
+                      className="btn" data-size="sm"
+                      data-variant={bodyView === "rendered" ? "primary" : "ghost"}
+                      onClick={() => setBodyView("rendered")}
+                      disabled={!email.body_html}
+                      title={email.body_html ? "View the rendered email" : "No HTML version available"}
+                    >
+                      Rendered
+                    </button>
+                  </div>
                 }
               >
-                <HighlightedBody body={email.body} />
+                {bodyView === "analysis" ? (
+                  <>
+                    <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                      <I.AlertTriangle size={11} />
+                      Highlighted phrases indicate detected triggers
+                    </div>
+                    <HighlightedBody body={email.body} />
+                  </>
+                ) : (
+                  <RenderedHtmlBody html={email.body_html} />
+                )}
               </Card>
 
               {/* Raw headers toggle */}
@@ -350,6 +418,23 @@ function EmailDetailsPage() {
               <Card title="Risk score">
                 <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
                   <RiskGauge score={email.risk_score} />
+                </div>
+                {/* ML model attribution */}
+                <div style={{ marginTop: 8, paddingTop: 10, borderTop: "1px solid var(--border-faint)", fontSize: 12 }}>
+                  {email.used_ml ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
+                      <I.Zap size={13} style={{ color: "var(--accent)" }} />
+                      <span>
+                        Scored by ML model
+                        {email.ml_score != null && <> · <strong style={{ color: "var(--text)" }}>{Number(email.ml_score).toFixed(1)}/10</strong></>}
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)" }}>
+                      <I.Sliders size={13} />
+                      <span>Rule-based scoring</span>
+                    </div>
+                  )}
                 </div>
               </Card>
 
