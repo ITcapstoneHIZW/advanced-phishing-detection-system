@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from database import engine, Base, SessionLocal
-from models import Email, AnalysisResult, User, LinkedEmail, SensitivityConfig, AuditLog
+from models import Email, AnalysisResult, User, LinkedEmail, SensitivityConfig, AuditLog, UserFeedback
 from logger import logger
 from services.feature_extractor import extract_features, calculate_combined_score
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +27,38 @@ from typing import Optional
 import json
 import os
 import nltk
+
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
+
+def parse_email_date(date_str):
+    """
+    Parse a provider date string into a timezone-aware datetime.
+    Handles Gmail RFC 2822 ("Wed, 10 Jun 2026 14:22:01 +1000") and
+    Microsoft ISO 8601 ("2026-06-10T14:22:01Z"). Returns None if unparseable.
+    All results are normalised to timezone-aware (UTC if no tz given) so they
+    can be compared/sorted without naive-vs-aware errors.
+    """
+    if not date_str:
+        return None
+    # Try RFC 2822 (Gmail)
+    try:
+        dt = parsedate_to_datetime(date_str)
+        if dt is not None:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+    except (TypeError, ValueError, IndexError):
+        pass
+    # Try ISO 8601 (Microsoft)
+    try:
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (TypeError, ValueError):
+        return None
+
 for pkg in ["punkt", "punkt_tab"]:
     try:
         nltk.download(pkg, quiet=True)
@@ -269,14 +301,17 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
             else:
                 continue
 
-            existing = db.query(Email.subject).filter(
+            existing = db.query(Email.message_id).filter(
                 Email.user_id == current_user.id,
                 Email.linked_email_id == linked.id
             ).all()
-            existing_subjects = set(e.subject for e in existing)
+            existing_ids = set(e.message_id for e in existing if e.message_id)
 
             for parsed in raw_emails:
-                if parsed["subject"] in existing_subjects:
+                msg_id = parsed.get("message_id")
+                # Dedup on stable provider message ID (falls back to skipping
+                # only if we've genuinely seen this exact message before)
+                if msg_id and msg_id in existing_ids:
                     continue
                 features = extract_features(parsed)
                 scoring = calculate_combined_score(features, email_text=parsed["body"])
@@ -287,7 +322,9 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                     sender=parsed["sender"],
                     subject=parsed["subject"],
                     body=parsed["body"],
-                    date_received=parsed["date"],
+                    body_html=parsed.get("body_html", ""),
+                    message_id=msg_id,
+                    date_received=parse_email_date(parsed.get("date")),
                     is_quarantined=quarantined
                 )
                 db.add(new_email)
@@ -309,10 +346,13 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                     detected_language=features["detected_language"],
                     is_non_english=features["is_non_english"],
                     risk_score=scoring["score"],
-                    verdict=scoring["verdict"]
+                    verdict=scoring["verdict"],
+                    ml_score=scoring.get("ml_score"),
+                    used_ml=scoring.get("used_ml", False)
                 )
                 db.add(analysis)
-                existing_subjects.add(parsed["subject"])
+                if msg_id:
+                    existing_ids.add(msg_id)
                 total_saved += 1
                 if quarantined:
                     total_quarantined += 1
@@ -339,11 +379,14 @@ def get_email(email_id: int, current_user: User = Depends(get_current_user), db:
         "sender": email.sender,
         "subject": email.subject,
         "body": email.body,
-        "date_received": email.date_received,
+        "body_html": email.body_html,
+        "date_received": str(email.date_received) if email.date_received else None,
         "is_quarantined": email.is_quarantined,
         "inbox": linked.email_address if linked else None,
         "risk_score": analysis.risk_score if analysis else None,
         "verdict": analysis.verdict if analysis else None,
+        "ml_score": analysis.ml_score if analysis else None,
+        "used_ml": analysis.used_ml if analysis else False,
         "url_count": analysis.url_count if analysis else 0,
         "has_suspicious_url": analysis.has_suspicious_url if analysis else False,
         "has_urgent_language": analysis.has_urgent_language if analysis else False,
@@ -363,7 +406,8 @@ def get_email(email_id: int, current_user: User = Depends(get_current_user), db:
 
 @app.get("/emails")
 def get_emails(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    emails = db.query(Email).filter(Email.user_id == current_user.id).all()
+    emails = db.query(Email).filter(Email.user_id == current_user.id)\
+        .order_by(Email.date_received.desc().nullslast()).all()
     results = []
     for email in emails:
         analysis = db.query(AnalysisResult).filter(AnalysisResult.email_id == email.id).first()
@@ -376,6 +420,8 @@ def get_emails(current_user: User = Depends(get_current_user), db: Session = Dep
             "is_quarantined": email.is_quarantined,
             "risk_score": analysis.risk_score if analysis else None,
             "verdict": analysis.verdict if analysis else None,
+            "ml_score": analysis.ml_score if analysis else None,
+            "used_ml": analysis.used_ml if analysis else False,
             "inbox": linked.email_address if linked else None
         })
     return {"emails": results}
@@ -397,6 +443,7 @@ def delete_email(email_id: int, current_user: User = Depends(get_current_user), 
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
     subject = email.subject
+    db.query(UserFeedback).filter(UserFeedback.email_id == email_id).delete()
     db.query(AnalysisResult).filter(AnalysisResult.email_id == email_id).delete()
     db.delete(email)
     db.commit()
@@ -411,12 +458,25 @@ def submit_feedback(email_id: int, data: dict, current_user: User = Depends(get_
     verdict = data.get("verdict")
     if verdict not in ["Safe", "Phishing"]:
         raise HTTPException(status_code=400, detail="Invalid verdict")
+
     analysis = db.query(AnalysisResult).filter(AnalysisResult.email_id == email_id).first()
-    if analysis:
-        analysis.verdict = verdict
+    original_verdict = analysis.verdict if analysis else None
+
+    # Record the human feedback as a labelled training datapoint, preserving
+    # what the system originally said (do NOT overwrite the system verdict).
+    feedback_row = UserFeedback(
+        email_id=email_id,
+        user_id=current_user.id,
+        feedback=verdict,
+        original_verdict=original_verdict,
+        used_for_retraining=False
+    )
+    db.add(feedback_row)
+
+    # Still reflect the user's decision in the quarantine state for UX.
     email.is_quarantined = verdict == "Phishing"
     db.commit()
-    audit(db, current_user, "feedback_submitted", "email", email_id, f"Email marked as {verdict}: '{email.subject}'", severity="info")
+    audit(db, current_user, "feedback_submitted", "email", email_id, f"Email marked as {verdict} (was {original_verdict}): '{email.subject}'", severity="info")
     return {"message": f"Email marked as {verdict}"}
 
 # --- Sensitivity settings ---
@@ -509,6 +569,7 @@ def change_password(data: dict, current_user: User = Depends(get_current_user), 
 @app.delete("/account")
 def delete_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     audit(db, current_user, "account_deleted", "account", current_user.id, f"Account deleted: {current_user.email}", severity="critical")
+    db.query(UserFeedback).filter(UserFeedback.user_id == current_user.id).delete(synchronize_session=False)
     db.query(AnalysisResult).filter(
         AnalysisResult.email_id.in_(
             db.query(Email.id).filter(Email.user_id == current_user.id)

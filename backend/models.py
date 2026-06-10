@@ -40,8 +40,10 @@ class Email(Base):
     sender = Column(String, nullable=True)
     recipient = Column(String, nullable=True)
     subject = Column(String, nullable=True)
-    body = Column(Text, nullable=True)
-    date_received = Column(String, nullable=True)
+    body = Column(Text, nullable=True)            # plain-text body, used for feature extraction / scoring
+    body_html = Column(Text, nullable=True)       # NEW: raw HTML body, used for display only
+    message_id = Column(String, nullable=True, index=True)  # NEW: stable provider message ID, for dedup
+    date_received = Column(DateTime(timezone=True), nullable=True)  # CHANGED: was String, now real datetime
     header_data = Column(Text, nullable=True)
     link_data = Column(Text, nullable=True)
     is_quarantined = Column(Boolean, default=False)
@@ -50,6 +52,7 @@ class Email(Base):
     user = relationship("User", back_populates="emails")
     linked_email = relationship("LinkedEmail", back_populates="emails")
     analysis = relationship("AnalysisResult", back_populates="email")
+    feedback = relationship("UserFeedback", back_populates="email")
 
 
 class AnalysisResult(Base):
@@ -87,6 +90,11 @@ class AnalysisResult(Base):
     # Overall scoring
     risk_score = Column(Float, default=0.0)
     verdict = Column(String, nullable=True)
+
+    # ML model scoring  (NEW)
+    ml_score = Column(Float, nullable=True)       # ML model's risk score (0-10 scaled), null if ML not used
+    used_ml = Column(Boolean, default=False)      # True if the ML model scored this email, False if rule-based only
+
     analysed_at = Column(DateTime(timezone=True), server_default=func.now())
 
     email = relationship("Email", back_populates="analysis")
@@ -102,6 +110,20 @@ class SensitivityConfig(Base):
     date_changed = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="sensitivity_configs")
+
+
+class UserFeedback(Base):
+    __tablename__ = "user_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email_id = Column(Integer, ForeignKey("emails.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    feedback = Column(String, nullable=False)             # "Safe" or "Phishing" — the human label
+    original_verdict = Column(String, nullable=True)      # what the system said before the correction (preserved)
+    date_submitted = Column(DateTime(timezone=True), server_default=func.now())
+    used_for_retraining = Column(Boolean, default=False)  # track which feedback has been fed into a retrain cycle
+
+    email = relationship("Email", back_populates="feedback")
 
 
 class AuditLog(Base):

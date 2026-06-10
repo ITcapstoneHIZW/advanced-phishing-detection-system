@@ -10,8 +10,18 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# The engine is the connection between Python and the database
-engine = create_engine(DATABASE_URL)
+# Local development fallback: if no DATABASE_URL is set (i.e. not on Railway),
+# use a local SQLite file so the app can run and be tested locally.
+# In production Railway always sets DATABASE_URL, so this never triggers there.
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./phishing.db"
+
+# SQLite needs check_same_thread=False to work with FastAPI's threading;
+# Postgres does not take that argument.
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
 
 # A temporary connection used to talk with the database
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

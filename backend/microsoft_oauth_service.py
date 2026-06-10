@@ -1,6 +1,7 @@
 import requests
 from dotenv import load_dotenv
 import os
+import re
 
 load_dotenv()
 
@@ -67,23 +68,31 @@ def get_user_info(access_token: str) -> str:
     data = response.json()
     return data.get("mail") or data.get("userPrincipalName")
 
+
+def _html_to_text(html: str) -> str:
+    """Rough strip of HTML tags to produce a plain-text version for scoring."""
+    if not html:
+        return ""
+    text = re.sub(r"<[^>]+>", "", html)
+    return text
+
+
 def fetch_emails_microsoft(credentials_dict: dict, max_results: int = 10) -> tuple[list, dict]:
     access_token = credentials_dict.get("access_token")
     refresh_token = credentials_dict.get("refresh_token")
 
-    response = requests.get(
-        f"https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top={max_results}&$orderby=receivedDateTime desc",
-        headers={"Authorization": f"Bearer {access_token}"}
+    url = (
+        f"https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages"
+        f"?$top={max_results}&$orderby=receivedDateTime desc"
     )
+
+    response = requests.get(url, headers={"Authorization": f"Bearer {access_token}"})
 
     if response.status_code == 401 and refresh_token:
         new_creds = refresh_access_token(refresh_token)
         access_token = new_creds["access_token"]
         credentials_dict.update(new_creds)
-        response = requests.get(
-            f"https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top={max_results}&$orderby=receivedDateTime desc",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
+        response = requests.get(url, headers={"Authorization": f"Bearer {access_token}"})
 
     if not response.ok:
         raise Exception("Failed to fetch emails from Microsoft")
@@ -92,15 +101,29 @@ def fetch_emails_microsoft(credentials_dict: dict, max_results: int = 10) -> tup
     emails = []
 
     for msg in messages:
-        body = msg.get("body", {}).get("content", "")
-        import re
-        body = re.sub(r"<[^>]+>", "", body)
+        try:
+            body_obj = msg.get("body", {})
+            content = body_obj.get("content", "")
+            content_type = (body_obj.get("contentType") or "").lower()
 
-        emails.append({
-            "subject": msg.get("subject", "No Subject"),
-            "sender": msg.get("from", {}).get("emailAddress", {}).get("address", "Unknown"),
-            "date": msg.get("receivedDateTime", "Unknown"),
-            "body": body
-        })
+            if content_type == "html":
+                html = content
+                plain = _html_to_text(content)
+            else:
+                # contentType == "text" (or unknown) — treat as plain text
+                html = ""
+                plain = content
+
+            emails.append({
+                "message_id": msg.get("id"),     # stable Microsoft message ID, for dedup
+                "subject": msg.get("subject", "No Subject"),
+                "sender": msg.get("from", {}).get("emailAddress", {}).get("address", "Unknown"),
+                "date": msg.get("receivedDateTime", ""),  # raw ISO 8601 string; parsed in sync loop
+                "body": plain,                   # plain text, for feature extraction / scoring
+                "body_html": html,               # raw HTML (empty if the message was plain text)
+            })
+        except Exception:
+            # Skip any single message that fails rather than aborting the whole sync
+            continue
 
     return emails, credentials_dict
