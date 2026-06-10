@@ -52,3 +52,4 @@ urllib3==2.7.0
 uvicorn==0.41.0
 gdown>=4.6.0
 scikit-learn
+numpy
