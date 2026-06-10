@@ -14,6 +14,7 @@ predictions return None and the caller can fall back to rule-based scoring.
 """
 
 import os
+import re
 import logging
 import joblib
 import urllib.request
@@ -43,6 +44,26 @@ def _is_google_drive_url(url: str) -> bool:
     return "drive.google.com" in url
 
 
+def _extract_drive_file_id(url: str) -> str:
+    """
+    Extract the Google Drive file ID from a share URL.
+
+    Handles common formats:
+      https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+      https://drive.google.com/open?id=FILE_ID
+      https://drive.google.com/uc?id=FILE_ID
+    """
+    # Pattern 1: /file/d/FILE_ID/
+    match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
+    if match:
+        return match.group(1)
+    # Pattern 2: ?id=FILE_ID  or  &id=FILE_ID
+    match = re.search(r"[?&]id=([a-zA-Z0-9_-]+)", url)
+    if match:
+        return match.group(1)
+    raise ValueError(f"Could not extract Google Drive file ID from URL: {url}")
+
+
 def _download_file(url: str, dest: Path) -> None:
     """Download a file from a URL to a local path.
 
@@ -53,9 +74,10 @@ def _download_file(url: str, dest: Path) -> None:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     if _is_google_drive_url(url):
-        # gdown handles the virus scan warning, confirmation tokens, etc.
         import gdown
-        gdown.download(url, str(dest), quiet=False, fuzzy=True)
+        file_id = _extract_drive_file_id(url)
+        # Use the canonical /uc?id= format that gdown expects across all versions.
+        gdown.download(f"https://drive.google.com/uc?id={file_id}", str(dest), quiet=False)
     else:
         urllib.request.urlretrieve(url, dest)
 
