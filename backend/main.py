@@ -259,11 +259,11 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
             credentials_dict = json.loads(linked.credentials) if linked.credentials else None
 
             if linked.provider == "gmail":
-                raw_emails, updated_creds = fetch_google_emails(credentials_dict)
+                raw_emails, updated_creds = fetch_google_emails(credentials_dict, max_results=100)
                 linked.credentials = json.dumps(updated_creds)
                 db.commit()
             elif linked.provider == "microsoft":
-                raw_emails, updated_creds = fetch_emails_microsoft(credentials_dict)
+                raw_emails, updated_creds = fetch_emails_microsoft(credentials_dict, max_results=100)
                 linked.credentials = json.dumps(updated_creds)
                 db.commit()
             else:
