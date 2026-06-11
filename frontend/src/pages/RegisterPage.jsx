@@ -51,7 +51,7 @@ function RegisterPage() {
         <div className="login-card" style={{ width: "auto", borderRadius: "var(--r-xl) 0 0 var(--r-xl)", borderRight: 0 }}>
           <div className="row" style={{ marginBottom: 22 }}>
             <BrandMark />
-            <span style={{ fontSize: 15, fontWeight: 600 }}>Phishing Detection</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Sentinel</span>
           </div>
 
           <div className="row" style={{ gap: 6, marginBottom: 18, fontSize: 11.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: 0.5 }}>
