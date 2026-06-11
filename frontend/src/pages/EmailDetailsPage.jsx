@@ -7,31 +7,49 @@ import { getEmailById, releaseEmail, deleteEmail, submitFeedback } from "../api/
 // === Risk Gauge ===
 function RiskGauge({ score }) {
   if (score == null) return null;
-  const a0 = Math.PI * 0.85, a1 = Math.PI * 0.15;
+  // Semicircle arc gauge. Background and fill trace the SAME path; the fill
+  // length is set with stroke-dasharray so it is exactly proportional to the
+  // score (e.g. 5.0 fills half the arc, 3.9 fills 39%).
   const r = 54, cx = 70, cy = 65;
   const pct = Math.max(0, Math.min(10, score)) / 10;
-  const angle = a0 - (a0 - a1) * pct;
-  const x = cx + r * Math.cos(angle);
-  const y = cy + r * Math.sin(angle);
-  const large = pct > 0.5 ? 1 : 0;
-  const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 ${large} 1 ${x} ${y}`;
-  const fullPath = `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`;
+  const arcLength = Math.PI * r;            // length of a 180-degree arc
+  const filled = arcLength * pct;
+  // Left point -> over the top -> right point (a clean half circle).
+  const semicirclePath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
   const color = riskColor(score);
   const label = riskLabel(score);
+  // Tick marks at 0,2,4,6,8,10 around the same semicircle (angle pi -> 0).
+  const ticks = [0, 2, 4, 6, 8, 10].map(t => {
+    const a = Math.PI - Math.PI * (t / 10);  // pi at left (0), 0 at right (10)
+    return {
+      x1: cx + r * Math.cos(a),
+      y1: cy - r * Math.sin(a),
+      x2: cx + (r + 6) * Math.cos(a),
+      y2: cy - (r + 6) * Math.sin(a),
+      key: t,
+    };
+  });
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-      <svg viewBox="0 0 140 80" width={160} height={92}>
-        <path d={fullPath} stroke="var(--bg-sunken)" strokeWidth="7" fill="none" strokeLinecap="round" />
-        <path d={arcPath} stroke={color} strokeWidth="7" fill="none" strokeLinecap="round" />
-        {[0, 2, 4, 6, 8, 10].map(t => {
-          const a = a0 - (a0 - a1) * (t / 10);
-          return <line key={t}
-            x1={cx + (r + 4) * Math.cos(a)} y1={cy + (r + 4) * Math.sin(a)}
-            x2={cx + (r + 8) * Math.cos(a)} y2={cy + (r + 8) * Math.sin(a)}
-            stroke="var(--text-faint)" strokeWidth="1" />;
-        })}
+      <svg viewBox="0 0 140 85" width={160} height={97}>
+        {/* background track */}
+        <path d={semicirclePath} stroke="var(--bg-sunken)" strokeWidth="8" fill="none" strokeLinecap="round" />
+        {/* filled portion, proportional to score via dasharray */}
+        <path
+          d={semicirclePath}
+          stroke={color}
+          strokeWidth="8"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${filled} ${arcLength}`}
+        />
+        {/* tick marks */}
+        {ticks.map(tk => (
+          <line key={tk.key} x1={tk.x1} y1={tk.y1} x2={tk.x2} y2={tk.y2}
+            stroke="var(--text-faint)" strokeWidth="1" />
+        ))}
       </svg>
-      <div style={{ fontSize: 26, fontWeight: 700, color, lineHeight: 1, marginTop: -12 }}>{score.toFixed(1)}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color, lineHeight: 1, marginTop: -10 }}>{score.toFixed(1)}</div>
       <div style={{ fontSize: 11, color: "var(--text-muted)" }}>out of 10</div>
       <Sev score={score} label={label} />
     </div>
@@ -96,6 +114,35 @@ function HighlightedBody({ body }) {
 // same way real mail clients block remote content by default (it stops the
 // email from "phoning home" when opened).
 function RenderedHtmlBody({ html }) {
+  const frameRef = React.useRef(null);
+  const [height, setHeight] = useState(360);
+
+  // Resize the iframe to fit the email's actual content height, so the user
+  // doesn't have to scroll inside a small box. We read the rendered body height
+  // on load. The iframe uses sandbox="allow-same-origin" (so the parent can
+  // measure it) but NOT allow-scripts, so email JavaScript still cannot run.
+  const resize = () => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    try {
+      const doc = frame.contentDocument || frame.contentWindow.document;
+      const h = Math.max(
+        doc.body.scrollHeight,
+        doc.documentElement.scrollHeight
+      );
+      if (h && h > 0) setHeight(h + 24);
+    } catch {
+      // If measurement is blocked for any reason, fall back to a sensible size.
+      setHeight(600);
+    }
+  };
+
+  useEffect(() => {
+    // Re-measure shortly after load in case images/fonts shift layout.
+    const t = setTimeout(resize, 150);
+    return () => clearTimeout(t);
+  }, [html]);
+
   if (!html) {
     return <span className="muted">No HTML version available for this email.</span>;
   }
@@ -103,7 +150,8 @@ function RenderedHtmlBody({ html }) {
   // CSP blocks scripts and remote image/resource loading inside the iframe.
   const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:;">`;
   const baseStyle = `<style>
-    body { font-family: -apple-system, system-ui, sans-serif; color: #1a1a1a; background: #fff; margin: 0; padding: 12px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+    html, body { margin: 0; }
+    body { font-family: -apple-system, system-ui, sans-serif; color: #1a1a1a; background: #fff; padding: 12px; font-size: 14px; line-height: 1.6; word-break: break-word; overflow: hidden; }
     a { color: #2563eb; }
     img { max-width: 100%; height: auto; }
   </style>`;
@@ -119,12 +167,14 @@ function RenderedHtmlBody({ html }) {
         Rendered in a sandbox. Scripts disabled and remote images blocked for safety.
       </div>
       <iframe
+        ref={frameRef}
         title="Email content"
-        sandbox=""
+        sandbox="allow-same-origin"
         srcDoc={srcDoc}
+        onLoad={resize}
         style={{
-          width: "100%", minHeight: 320, border: "1px solid var(--border-faint)",
-          borderRadius: "var(--r-md)", background: "#fff"
+          width: "100%", height: height, border: "1px solid var(--border-faint)",
+          borderRadius: "var(--r-md)", background: "#fff", display: "block"
         }}
       />
     </div>

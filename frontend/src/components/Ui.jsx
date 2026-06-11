@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Icons from "./Icons";
 
 const I = Icons;
@@ -129,6 +129,42 @@ const BrandMark = ({ tweak }) => (
   </div>
 );
 
+// === Theme toggle (light / night mode) ===
+// The dark palette already exists in index.css under [data-theme="dark"].
+// This just flips the attribute on <html> and remembers the choice.
+function useTheme() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("theme") || "light";
+    } catch {
+      return "light";
+    }
+  });
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("theme", theme); } catch {}
+  }, [theme]);
+  return [theme, setTheme];
+}
+
+const ThemeToggle = () => {
+  const [theme, setTheme] = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <button
+      className="btn"
+      data-variant="ghost"
+      data-size="sm"
+      title={isDark ? "Switch to light mode" : "Switch to night mode"}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      style={{ width: "100%", justifyContent: "flex-start", gap: 10, color: "var(--text-secondary)" }}
+    >
+      {isDark ? <I.Sun size={16} /> : <I.Moon size={16} />}
+      <span>{isDark ? "Light mode" : "Night mode"}</span>
+    </button>
+  );
+};
+
 // === Sidebar ===
 const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, onSignOut }) => {
   const nav = [
@@ -161,6 +197,10 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
             ) : null}
           </button>
         ))}
+      </div>
+
+      <div style={{ padding: "0 8px 6px" }}>
+        <ThemeToggle />
       </div>
 
       <div
