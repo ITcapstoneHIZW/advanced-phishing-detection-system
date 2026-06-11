@@ -55,7 +55,7 @@ function LoginPage() {
         <div className="login-card" style={{ width: "auto", borderRadius: "var(--r-xl) 0 0 var(--r-xl)", borderRight: 0 }}>
           <div className="row" style={{ marginBottom: 28 }}>
             <BrandMark />
-            <span style={{ fontSize: 15, fontWeight: 600 }}>Phishing Detection</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Sentinel</span>
           </div>
 
           <h1>Sign in to your console</h1>
