@@ -182,7 +182,7 @@ function LinkEmailPage() {
       <div style={{ maxWidth: 480, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div className="row" style={{ justifyContent: "center", marginBottom: 22 }}>
           <BrandMark />
-          <span style={{ fontSize: 15, fontWeight: 600 }}>Phishing Detection</span>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>Sentinel</span>
         </div>
 
         <ProgressBar step={progressStep} />
