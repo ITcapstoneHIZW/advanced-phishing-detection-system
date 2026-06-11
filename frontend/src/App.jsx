@@ -61,7 +61,7 @@ function ShellLayout({ children }) {
     navigate("/");
   };
 
-  const brandName = "Phishing Detection";
+  const brandName = "Sentinel";
 
   return (
     <div className="app">
