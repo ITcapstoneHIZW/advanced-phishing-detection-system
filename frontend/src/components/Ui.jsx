@@ -186,6 +186,9 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
       <div className="brand">
         <BrandMark />
         <span className="brand-name">{brandName}</span>
+        <div style={{ marginLeft: "auto" }}>
+          <ThemeToggleIcon />
+        </div>
       </div>
 
       <div className="nav-group">
@@ -203,10 +206,6 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
             ) : null}
           </button>
         ))}
-      </div>
-
-      <div style={{ padding: "0 12px 8px" }}>
-        <ThemeToggleIcon />
       </div>
 
       <div
