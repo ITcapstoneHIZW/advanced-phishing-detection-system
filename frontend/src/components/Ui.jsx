@@ -6,19 +6,20 @@ const I = Icons;
 // Shared building blocks
 
 // === Severity helpers ===
+// 3-band verdict system: Safe (< 4), Suspicious (4-6.9), Phishing (>= 7).
+// Mapped to existing severity tones for colour: Safe=low (green),
+// Suspicious=high (orange), Phishing=critical (red).
 function riskLevel(score) {
-  if (score >= 8) return "critical";
-  if (score >= 6) return "high";
-  if (score >= 4) return "medium";
-  if (score >= 2) return "low";
-  return "clean";
+  if (score >= 7) return "critical";   // Phishing
+  if (score >= 4) return "high";       // Suspicious
+  return "low";                        // Safe
 }
 function riskColor(score) {
   const l = riskLevel(score);
   return `var(--sev-${l})`;
 }
 function riskLabel(score) {
-  return { critical: "Critical", high: "High", medium: "Medium", low: "Low", clean: "Clean" }[riskLevel(score)];
+  return { critical: "Phishing", high: "Suspicious", low: "Safe" }[riskLevel(score)];
 }
 
 const Sev = ({ score, level, label, children }) => {

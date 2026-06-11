@@ -143,7 +143,7 @@ function AllMailPage() {
                         <span style={{
                           fontWeight: 500,
                           color: e.verdict === "Phishing" ? "var(--sev-critical)"
-                               : e.verdict === "Suspicious" ? "var(--sev-medium)"
+                               : e.verdict === "Suspicious" ? "var(--sev-high)"
                                : "var(--sev-low)"
                         }}>{e.verdict || "—"}</span>
                       </td>

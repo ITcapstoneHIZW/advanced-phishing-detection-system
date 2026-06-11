@@ -9,17 +9,15 @@ const PAGE_SIZE = 20;
 function reasonChips(email) {
   const chips = [];
   if (email.verdict === "Phishing") chips.push({ label: "Phishing", tone: "critical" });
-  if (email.verdict === "Suspicious") chips.push({ label: "Suspicious", tone: "medium" });
-  if (email.risk_score >= 8) chips.push({ label: "High risk", tone: "high" });
+  if (email.verdict === "Suspicious") chips.push({ label: "Suspicious", tone: "high" });
   return chips;
 }
 
 function severityLevel(score) {
   if (score == null) return "unknown";
-  if (score >= 8) return "critical";
-  if (score >= 6) return "high";
-  if (score >= 4) return "medium";
-  return "low";
+  if (score >= 7) return "critical";   // Phishing
+  if (score >= 4) return "high";       // Suspicious
+  return "low";                        // Safe
 }
 
 function QuarantinePage() {
@@ -186,10 +184,9 @@ function QuarantinePage() {
             onChange={setSeverity}
             options={[
               { value: "all", label: "All severity" },
-              { value: "critical", label: "Critical" },
-              { value: "high", label: "High" },
-              { value: "medium", label: "Medium" },
-              { value: "low", label: "Low" },
+              { value: "critical", label: "Phishing" },
+              { value: "high", label: "Suspicious" },
+              { value: "low", label: "Safe" },
             ]}
           />
 

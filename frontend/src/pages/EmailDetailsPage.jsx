@@ -319,6 +319,74 @@ function WhyFlagged({ email }) {
   );
 }
 
+// === Score meaning (3-band verdict system: Safe < 4 <= Suspicious < 7 <= Phishing) ===
+// Explains what the 0-10 risk score means and what the user should do about it.
+function scoreExplanation(score) {
+  if (score == null) {
+    return null;
+  }
+  if (score >= 7) {
+    return {
+      tone: "critical",
+      band: "Phishing",
+      range: "7.0 - 10.0",
+      meaning: "This email shows strong signs of being a phishing attempt and is very likely malicious.",
+      action: "Do not click any links, open attachments, or reply. If it claims to be from a real organisation, contact them through their official website instead.",
+    };
+  }
+  if (score >= 4) {
+    return {
+      tone: "high",
+      band: "Suspicious",
+      range: "4.0 - 6.9",
+      meaning: "This email has some characteristics commonly found in phishing, but not enough to be certain.",
+      action: "Treat it with caution. Don't click links or share any information until you've independently verified the sender is genuine.",
+    };
+  }
+  return {
+    tone: "low",
+    band: "Safe",
+    range: "0.0 - 3.9",
+    meaning: "No significant phishing indicators were detected. This email appears legitimate.",
+    action: "It looks safe, but always stay alert \u2014 if anything feels off, verify the sender before acting.",
+  };
+}
+
+function ScoreMeaning({ score }) {
+  const info = scoreExplanation(score);
+  if (!info) return null;
+  return (
+    <div style={{ marginTop: 12 }}>
+      {/* Scale context: where this score sits on the 0-10 range */}
+      <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginBottom: 8 }}>
+        Risk is scored from 0 (safe) to 10 (definite phishing). A score of{" "}
+        <strong style={{ color: "var(--text)" }}>{Number(score).toFixed(1)}</strong>{" "}
+        falls in the <strong style={{ color: `var(--sev-${info.tone})` }}>{info.band}</strong> range ({info.range}).
+      </div>
+
+      <div style={{
+        padding: "10px 12px",
+        background: `var(--sev-${info.tone}-bg)`,
+        border: `1px solid var(--sev-${info.tone})`,
+        borderRadius: "var(--r-sm)",
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: `var(--sev-${info.tone})`, marginBottom: 4 }}>
+          What this means
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55, marginBottom: 8 }}>
+          {info.meaning}
+        </div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: `var(--sev-${info.tone})`, marginBottom: 4 }}>
+          What you should do
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
+          {info.action}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // === Main page ===
 function EmailDetailsPage() {
   const { id } = useParams();
@@ -610,6 +678,10 @@ function EmailDetailsPage() {
                 <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
                   <RiskGauge score={email.risk_score} />
                 </div>
+
+                {/* What the score means + what to do */}
+                <ScoreMeaning score={email.risk_score} />
+
                 {/* ML model attribution */}
                 <div style={{ marginTop: 8, paddingTop: 10, borderTop: "1px solid var(--border-faint)", fontSize: 12 }}>
                   {email.used_ml ? (
