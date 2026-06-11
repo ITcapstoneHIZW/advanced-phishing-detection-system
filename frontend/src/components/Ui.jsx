@@ -148,20 +148,25 @@ function useTheme() {
   return [theme, setTheme];
 }
 
-const ThemeToggle = () => {
+const ThemeToggleIcon = () => {
   const [theme, setTheme] = useTheme();
   const isDark = theme === "dark";
   return (
     <button
-      className="btn"
-      data-variant="ghost"
-      data-size="sm"
-      title={isDark ? "Switch to light mode" : "Switch to night mode"}
+      type="button"
+      aria-label={isDark ? "Switch to light mode" : "Switch to night mode"}
+      title={isDark ? "Light mode" : "Night mode"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      style={{ width: "100%", justifyContent: "flex-start", gap: 10, color: "var(--text-secondary)" }}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 32, height: 32, borderRadius: "var(--r-sm)",
+        background: "transparent", border: "1px solid var(--border-faint)",
+        color: "var(--text-secondary)", cursor: "pointer", padding: 0,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-sunken)"; e.currentTarget.style.color = "var(--text)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
     >
       {isDark ? <I.Sun size={16} /> : <I.Moon size={16} />}
-      <span>{isDark ? "Light mode" : "Night mode"}</span>
     </button>
   );
 };
@@ -200,8 +205,8 @@ const Sidebar = ({ route, setRoute, brandName, env, quarantineCount, onAccount, 
         ))}
       </div>
 
-      <div style={{ padding: "0 8px 6px" }}>
-        <ThemeToggle />
+      <div style={{ padding: "0 12px 8px" }}>
+        <ThemeToggleIcon />
       </div>
 
       <div
