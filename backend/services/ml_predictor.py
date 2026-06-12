@@ -114,8 +114,8 @@ def is_available() -> bool:
 
 
 # --- Keyword features: MUST match Henry's training code exactly ---
-# (train_combined_model.py uses these 6 columns; api_with_tfidf.py defines the
-#  word lists. Keep them identical or the model receives wrong inputs.)
+# (full_pipeline.py uses these 9 columns, in this order. Keep identical or the
+#  model receives wrong inputs. Total model input = 9 keyword + 93 TF-IDF = 102.)
 _URGENT_WORDS = ['urgent', 'immediately', 'suspended', 'verify', 'alert', 'warning']
 _MONEY_WORDS = ['money', 'win', 'prize', 'million', 'free', 'cash', 'reward']
 _PRODUCT_WORDS = ['cialis', 'viagra', 'weight', 'loss', 'pharmacy']
@@ -124,12 +124,15 @@ _PRODUCT_WORDS = ['cialis', 'viagra', 'weight', 'loss', 'pharmacy']
 def _keyword_features(email_text: str):
     lower = email_text.lower()
     return [
-        len(email_text),
-        len(email_text.split()),
-        email_text.count('. ') + email_text.count('! ') + email_text.count('? '),
-        sum(1 for w in _URGENT_WORDS if w in lower),
-        sum(1 for w in _MONEY_WORDS if w in lower),
-        sum(1 for w in _PRODUCT_WORDS if w in lower),
+        len(email_text),                                                   # email_length
+        len(email_text.split()),                                           # word_count
+        email_text.count('. ') + email_text.count('! ') + email_text.count('? '),  # sentence_count
+        sum(1 for w in _URGENT_WORDS if w in lower),                       # urgent_word_count
+        sum(1 for w in _MONEY_WORDS if w in lower),                        # money_word_count
+        sum(1 for w in _PRODUCT_WORDS if w in lower),                      # product_word_count
+        1 if ('http' in lower or 'www.' in lower) else 0,                  # has_link
+        0,                                                                 # has_attachment (can't detect from text)
+        1 if ('urgent' in lower or 'immediately' in lower) else 0,         # urgency_flag
     ]
 
 
