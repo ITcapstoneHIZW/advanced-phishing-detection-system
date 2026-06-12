@@ -169,7 +169,23 @@ function SettingsPage() {
         const err = await res.json();
         throw new Error(err.detail || "Failed to save settings.");
       }
-      setSaved("Settings saved successfully.");
+      const result = await res.json();
+      // Show how many emails moved in/out of quarantine as a result.
+      const q = result.newly_quarantined ?? 0;
+      const r = result.newly_released ?? 0;
+      if (q > 0 || r > 0) {
+        const parts = [];
+        if (q > 0) parts.push(`${q} email${q !== 1 ? "s" : ""} quarantined`);
+        if (r > 0) parts.push(`${r} email${r !== 1 ? "s" : ""} released`);
+        setSaved(`Settings saved. ${parts.join(", ")}.`);
+      } else {
+        setSaved("Settings saved. No change to existing emails.");
+      }
+      // Refresh the local email list so the histogram/impact callout update.
+      try {
+        const refreshed = await getEmails();
+        setEmails(refreshed);
+      } catch {}
     } catch (err) {
       setError(err.message);
     } finally { setSaving(false); }
@@ -275,11 +291,11 @@ function SettingsPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
                   <div>
                     <div className="meta-label">Current model</div>
-                    <div className="meta-value" style={{ fontSize: 13 }}>Rule-based Classifier v1.0</div>
+                    <div className="meta-value" style={{ fontSize: 13 }}>Hybrid: Random Forest (TF-IDF + keyword) with rule-based checks</div>
                   </div>
                   <div>
                     <div className="meta-label">Features used</div>
-                    <div className="meta-value" style={{ fontSize: 13 }}>URL analysis, Urgency detection, Sender reputation, NLP sentiment</div>
+                    <div className="meta-value" style={{ fontSize: 13 }}>ML semantic (TF-IDF) + keyword features, URL analysis, urgency detection, sender reputation, NLP sentiment</div>
                   </div>
                   <div>
                     <div className="meta-label">Current threshold</div>
