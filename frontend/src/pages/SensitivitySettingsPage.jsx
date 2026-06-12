@@ -114,6 +114,7 @@ function ImpactCallout({ emails, threshold }) {
 function SettingsPage() {
   const [threshold, setThreshold] = useState(0.7);
   const [mode, setMode] = useState("phishing");
+  const [modelInfo, setModelInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState("");
@@ -129,6 +130,13 @@ function SettingsPage() {
         const data = await res.json();
         if (data.threshold != null) setThreshold(data.threshold);
         if (data.quarantine_type) setMode(data.quarantine_type);
+        // Fetch the actually-loaded model details (auto-updates if model changes)
+        try {
+          const miRes = await fetch(`${BASE_URL}/model-info`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
+          });
+          if (miRes.ok) setModelInfo(await miRes.json());
+        } catch {}
       } catch {
         setError("Could not load settings.");
       } finally { setLoading(false); }
@@ -291,7 +299,7 @@ function SettingsPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
                   <div>
                     <div className="meta-label">Current model</div>
-                    <div className="meta-value" style={{ fontSize: 13 }}>Hybrid: Random Forest (TF-IDF + keyword) with rule-based checks</div>
+                    <div className="meta-value" style={{ fontSize: 13 }}>{modelInfo?.description || "Loading model info…"}</div>
                   </div>
                   <div>
                     <div className="meta-label">Features used</div>
