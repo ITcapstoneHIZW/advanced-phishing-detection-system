@@ -326,20 +326,20 @@ function scoreExplanation(score) {
   if (score == null) {
     return null;
   }
-  if (score >= 7) {
+  if (score >= 8) {
     return {
       tone: "critical",
       band: "Phishing",
-      range: "7.0 - 10.0",
+      range: "8.0 - 10.0",
       meaning: "This email shows strong signs of being a phishing attempt and is very likely malicious.",
       action: "Do not click any links, open attachments, or reply. If it claims to be from a real organisation, contact them through their official website instead.",
     };
   }
-  if (score >= 4) {
+  if (score >= 6) {
     return {
       tone: "high",
       band: "Suspicious",
-      range: "4.0 - 6.9",
+      range: "6.0 - 7.9",
       meaning: "This email has some characteristics commonly found in phishing, but not enough to be certain.",
       action: "Treat it with caution. Don't click links or share any information until you've independently verified the sender is genuine.",
     };
@@ -347,7 +347,7 @@ function scoreExplanation(score) {
   return {
     tone: "low",
     band: "Safe",
-    range: "0.0 - 3.9",
+    range: "0.0 - 5.9",
     meaning: "No significant phishing indicators were detected. This email appears legitimate.",
     action: "It looks safe, but always stay alert \u2014 if anything feels off, verify the sender before acting.",
   };
