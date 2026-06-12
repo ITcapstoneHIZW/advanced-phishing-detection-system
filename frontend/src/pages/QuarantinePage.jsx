@@ -29,7 +29,7 @@ function QuarantinePage() {
   // Filters
   const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("quarantined");
 
   // Bulk select
   const [selected, setSelected] = useState(new Set());
