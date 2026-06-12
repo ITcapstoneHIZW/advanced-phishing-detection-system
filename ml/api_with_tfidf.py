@@ -1,5 +1,6 @@
 """
 Improved Phishing Detection API using BOTH keyword AND TF-IDF features.
+UPDATED to match full_pipeline.py (9 keyword + 100 TF-IDF = 109 features)
 """
 
 import joblib
@@ -8,7 +9,7 @@ import os
 import warnings
 warnings.filterwarnings('ignore')
 
-# Paths - UPDATED to use the combined model!
+# Paths
 MODEL_PATH = 'models/combined_model.pkl'
 SCALER_PATH = 'models/combined_scaler.pkl'
 TFIDF_PATH = 'models/tfidf_vectorizer.pkl'
@@ -27,8 +28,7 @@ if missing_files:
     print("❌ Missing files:")
     for f in missing_files:
         print(f"   - {f}")
-    print("\n💡 To fix:")
-    print("   1. Run 'python train_combined_model.py' first")
+    print("\n💡 Run 'python full_pipeline.py' first")
     exit(1)
 
 # Load all models
@@ -47,7 +47,7 @@ print(f"   ✅ TF-IDF vectorizer loaded ({tfidf.get_feature_names_out().shape[0]
 print("\n✅ All models loaded successfully!")
 
 def extract_numeric_features(email_text):
-    """Extract keyword-based features (same 6 as before)"""
+    """Extract ALL 9 keyword-based features (matching full_pipeline.py)"""
     return {
         'email_length': len(email_text),
         'word_count': len(email_text.split()),
@@ -55,12 +55,15 @@ def extract_numeric_features(email_text):
         'urgent_word_count': sum(1 for word in ['urgent', 'immediately', 'suspended', 'verify', 'alert', 'warning'] if word in email_text.lower()),
         'money_word_count': sum(1 for word in ['money', 'win', 'prize', 'million', 'free', 'cash', 'reward'] if word in email_text.lower()),
         'product_word_count': sum(1 for word in ['cialis', 'viagra', 'weight', 'loss', 'pharmacy'] if word in email_text.lower()),
+        'has_link': 1 if 'http' in email_text.lower() or 'www.' in email_text.lower() else 0,
+        'has_attachment': 0,  # Can't detect from text alone (would need attachment detection)
+        'urgency_flag': 1 if 'urgent' in email_text.lower() or 'immediately' in email_text.lower() else 0,
     }
 
 def predict_phishing(email_text):
-    """Predict using BOTH keyword AND TF-IDF features"""
+    """Predict using BOTH keyword AND TF-IDF features (109 total)"""
     
-    # 1. Keyword features
+    # 1. Keyword features (9 features)
     numeric = extract_numeric_features(email_text)
     numeric_array = np.array([[
         numeric['email_length'],
@@ -68,13 +71,16 @@ def predict_phishing(email_text):
         numeric['sentence_count'],
         numeric['urgent_word_count'],
         numeric['money_word_count'],
-        numeric['product_word_count']
+        numeric['product_word_count'],
+        numeric['has_link'],
+        numeric['has_attachment'],
+        numeric['urgency_flag']
     ]])
     
-    # 2. TF-IDF semantic features
+    # 2. TF-IDF semantic features (100 features)
     tfidf_features = tfidf.transform([email_text]).toarray()
     
-    # 3. Combine features
+    # 3. Combine features (9 + 100 = 109 features)
     combined = np.hstack([numeric_array, tfidf_features])
     
     # 4. Scale
