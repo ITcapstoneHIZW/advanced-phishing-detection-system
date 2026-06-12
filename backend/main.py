@@ -286,6 +286,12 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
     total_saved = 0
     total_quarantined = 0
 
+    # Load the user's sensitivity settings once; the sync loop applies them so
+    # new emails are quarantined according to the user's chosen mode/threshold.
+    sens_config = db.query(SensitivityConfig).filter(SensitivityConfig.user_id == current_user.id).first()
+    sens_threshold = sens_config.threshold_value if sens_config else 0.7
+    sens_mode = sens_config.quarantine_type if sens_config else "phishing"
+
     for linked in linked_emails:
         try:
             credentials_dict = json.loads(linked.credentials) if linked.credentials else None
@@ -315,7 +321,7 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                     continue
                 features = extract_features(parsed)
                 scoring = calculate_combined_score(features, email_text=((parsed.get("subject", "") or "") + " " + (parsed.get("body", "") or "")))
-                quarantined = scoring["verdict"] == "Phishing"
+                quarantined = _should_quarantine(scoring["score"], scoring["verdict"], sens_threshold, sens_mode)
                 new_email = Email(
                     user_id=current_user.id,
                     linked_email_id=linked.id,
@@ -487,12 +493,32 @@ def get_sensitivity(current_user: User = Depends(get_current_user), db: Session 
         return {"threshold": 0.7, "quarantine_type": "phishing"}
     return {"threshold": config.threshold_value, "quarantine_type": config.quarantine_type}
 
+def _should_quarantine(risk_score, verdict, threshold, mode):
+    """
+    Decide whether an email should be quarantined, based on the user's
+    sensitivity settings.
+      - mode "phishing"   -> quarantine only Phishing (score >= 7)
+      - mode "suspicious" -> quarantine Phishing + Suspicious (score >= 4)
+      - mode "all"        -> quarantine anything at/above the slider threshold
+                             (threshold is 0-1, scores are 0-10)
+    """
+    if risk_score is None:
+        return False
+    if mode == "all":
+        return risk_score >= (threshold * 10)
+    if mode == "suspicious":
+        return risk_score >= 4
+    # default: phishing only
+    return risk_score >= 7
+
+
 @app.post("/settings/sensitivity")
 def update_sensitivity(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     threshold = data.get("threshold")
     quarantine_type = data.get("quarantine_type", "phishing")
     if not threshold or not (0.1 <= threshold <= 0.9):
         raise HTTPException(status_code=400, detail="Threshold must be between 0.1 and 0.9")
+
     config = db.query(SensitivityConfig).filter(SensitivityConfig.user_id == current_user.id).first()
     old_threshold = config.threshold_value if config else 0.7
     if config:
@@ -502,8 +528,37 @@ def update_sensitivity(data: dict, current_user: User = Depends(get_current_user
         config = SensitivityConfig(user_id=current_user.id, threshold_value=threshold, quarantine_type=quarantine_type)
         db.add(config)
     db.commit()
-    audit(db, current_user, "sensitivity_updated", "config", None, f"Threshold changed from {old_threshold} to {threshold} (type: {quarantine_type})", severity="warning")
-    return {"message": "Sensitivity updated successfully", "threshold": threshold}
+
+    # Re-evaluate ALL of the user's existing emails against the new settings, so
+    # adjusting the slider/mode immediately moves emails in and out of quarantine.
+    emails = db.query(Email).filter(Email.user_id == current_user.id).all()
+    newly_quarantined = 0
+    newly_released = 0
+    for email in emails:
+        analysis = db.query(AnalysisResult).filter(AnalysisResult.email_id == email.id).first()
+        risk_score = analysis.risk_score if analysis else None
+        verdict = analysis.verdict if analysis else None
+        should_q = _should_quarantine(risk_score, verdict, threshold, quarantine_type)
+        if should_q and not email.is_quarantined:
+            email.is_quarantined = True
+            newly_quarantined += 1
+        elif not should_q and email.is_quarantined:
+            email.is_quarantined = False
+            newly_released += 1
+    db.commit()
+
+    audit(db, current_user, "sensitivity_updated", "config", None,
+          f"Threshold {old_threshold} -> {threshold}, mode {quarantine_type}. "
+          f"Re-evaluated {len(emails)} emails: {newly_quarantined} quarantined, {newly_released} released.",
+          severity="warning")
+    return {
+        "message": "Sensitivity updated successfully",
+        "threshold": threshold,
+        "quarantine_type": quarantine_type,
+        "newly_quarantined": newly_quarantined,
+        "newly_released": newly_released,
+        "total_evaluated": len(emails),
+    }
 
 # --- Audit log ---
 @app.get("/audit-logs")
