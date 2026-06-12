@@ -304,7 +304,8 @@ function WhyFlagged({ email }) {
         {email.used_ml ? (
           <>
             <strong style={{ color: "var(--text)" }}>Machine-learning assessment:</strong> our trained model
-            independently reviewed this email and assigned it a risk score of{" "}
+            analysed both the wording patterns and the semantic content of this email (keyword and
+            TF-IDF text analysis) and assigned it a risk score of{" "}
             <strong style={{ color: "var(--text)" }}>{email.ml_score != null ? Number(email.ml_score).toFixed(1) : "—"}/10</strong>.
             The final score combines this with the rule-based checks above.
           </>
@@ -688,7 +689,7 @@ function EmailDetailsPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
                       <I.Zap size={13} style={{ color: "var(--accent)" }} />
                       <span>
-                        Scored by ML model
+                        Scored by ML model (semantic + keyword)
                         {email.ml_score != null && <> · <strong style={{ color: "var(--text)" }}>{Number(email.ml_score).toFixed(1)}/10</strong></>}
                       </span>
                     </div>
