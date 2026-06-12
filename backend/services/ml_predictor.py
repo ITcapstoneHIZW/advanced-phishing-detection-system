@@ -139,6 +139,36 @@ def _keyword_features(email_text: str):
     ]
 
 
+def get_model_info() -> dict:
+    """
+    Report what is ACTUALLY loaded, so the UI reflects the real model rather
+    than a hardcoded label. Auto-updates whenever the deployed model changes.
+    """
+    available = is_available()
+    info = {
+        "ml_active": available,
+        "model_type": None,
+        "total_features": None,
+        "tfidf_features": None,
+        "description": None,
+    }
+    if available:
+        try:
+            info["model_type"] = type(_model).__name__  # e.g. "RandomForestClassifier"
+            info["total_features"] = int(getattr(_scaler, "n_features_in_", 0)) or None
+            info["tfidf_features"] = len(_vectorizer.get_feature_names_out())
+            kw = (info["total_features"] - info["tfidf_features"]) if info["total_features"] else None
+            info["description"] = (
+                f"Hybrid: {info['model_type']} "
+                f"({kw} keyword + {info['tfidf_features']} TF-IDF features) with rule-based checks"
+            )
+        except Exception:
+            pass
+    else:
+        info["description"] = "Rule-based scoring (ML model not loaded)"
+    return info
+
+
 def predict_phishing_ml(email_text: str):
     """
     Run the combined (9 keyword + 93 TF-IDF = 102) model on email text.
