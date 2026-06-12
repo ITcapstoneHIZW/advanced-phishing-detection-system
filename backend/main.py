@@ -486,6 +486,23 @@ def submit_feedback(email_id: int, data: dict, current_user: User = Depends(get_
     return {"message": f"Email marked as {verdict}"}
 
 # --- Sensitivity settings ---
+@app.get("/model-info")
+def model_info(current_user: User = Depends(get_current_user)):
+    """Report the actually-loaded ML model details so the UI reflects reality."""
+    try:
+        from services.ml_predictor import get_model_info as _get_model_info
+        return _get_model_info()
+    except Exception as e:
+        logger.error(f"model-info failed: {e}")
+        return {
+            "ml_active": False,
+            "description": "Rule-based scoring (model info unavailable)",
+            "model_type": None,
+            "total_features": None,
+            "tfidf_features": None,
+        }
+
+
 @app.get("/settings/sensitivity")
 def get_sensitivity(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     config = db.query(SensitivityConfig).filter(SensitivityConfig.user_id == current_user.id).first()
