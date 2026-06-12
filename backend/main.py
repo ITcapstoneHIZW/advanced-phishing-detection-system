@@ -315,7 +315,7 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                     continue
                 features = extract_features(parsed)
                 scoring = calculate_combined_score(features, email_text=((parsed.get("subject", "") or "") + " " + (parsed.get("body", "") or "")))
-                quarantined = scoring["verdict"] in ("Phishing", "Suspicious")
+                quarantined = scoring["verdict"] == "Phishing"
                 new_email = Email(
                     user_id=current_user.id,
                     linked_email_id=linked.id,
@@ -585,25 +585,3 @@ def delete_account(current_user: User = Depends(get_current_user), db: Session =
 @app.get("/")
 def read_root():
     return {"message": "Backend alive"}
-@app.get("/ml-debug")
-def ml_debug():
-    """Diagnostic: what does the running ML code actually see?"""
-    import os
-    import services.ml_predictor as mp
-    return {
-        "MODEL_URL": mp.MODEL_URL,
-        "SCALER_URL": mp.SCALER_URL,
-        "VECTORIZER_URL": getattr(mp, "VECTORIZER_URL", "ATTRIBUTE_MISSING"),
-        "MODEL_PATH": str(mp.MODEL_PATH),
-        "SCALER_PATH": str(mp.SCALER_PATH),
-        "VECTORIZER_PATH": str(getattr(mp, "VECTORIZER_PATH", "ATTRIBUTE_MISSING")),
-        "model_file_exists": mp.MODEL_PATH.exists(),
-        "scaler_file_exists": mp.SCALER_PATH.exists(),
-        "vectorizer_file_exists": getattr(mp, "VECTORIZER_PATH", mp.MODEL_PATH).exists() if hasattr(mp, "VECTORIZER_PATH") else "N/A",
-        "env_ML_MODEL_URL": os.environ.get("ML_MODEL_URL"),
-        "env_ML_SCALER_URL": os.environ.get("ML_SCALER_URL"),
-        "env_ML_VECTORIZER_URL": os.environ.get("ML_VECTORIZER_URL"),
-        "module_file": mp.__file__,
-        "initialized": mp._initialized,
-        "load_failed": mp._load_failed,
-    }
