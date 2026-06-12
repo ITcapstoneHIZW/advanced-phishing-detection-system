@@ -39,7 +39,7 @@ VECTORIZER_PATH = MODELS_DIR / "tfidf_vectorizer.pkl"
 # committed in backend/models/, so their downloads are only a fallback.
 _DEFAULT_RELEASE_BASE = (
     "https://github.com/ITcapstoneHIZW/advanced-phishing-detection-system/"
-    "releases/download/ML3/"
+    "releases/download/ML5/"
 )
 MODEL_URL = os.environ.get("ML_MODEL_URL") or _DEFAULT_RELEASE_BASE + "combined_model.pkl"
 SCALER_URL = os.environ.get("ML_SCALER_URL") or _DEFAULT_RELEASE_BASE + "combined_scaler.pkl"
