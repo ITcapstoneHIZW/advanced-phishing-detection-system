@@ -88,7 +88,7 @@ def predict_phishing(email_text):
     
     # 5. Predict
     risk_score = model.predict_proba(combined_scaled)[0][1]
-    is_phishing = risk_score > 0.7
+    is_phishing = risk_score > 0.8
     
     return {
         'risk_score': round(risk_score, 3),
