@@ -10,8 +10,8 @@ const I = Icons;
 // Mapped to existing severity tones for colour: Safe=low (green),
 // Suspicious=high (orange), Phishing=critical (red).
 function riskLevel(score) {
-  if (score >= 7) return "critical";   // Phishing
-  if (score >= 4) return "high";       // Suspicious
+  if (score >= 8) return "critical";   // Phishing
+  if (score >= 6) return "high";       // Suspicious
   return "low";                        // Safe
 }
 function riskColor(score) {
