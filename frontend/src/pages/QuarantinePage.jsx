@@ -15,8 +15,8 @@ function reasonChips(email) {
 
 function severityLevel(score) {
   if (score == null) return "unknown";
-  if (score >= 7) return "critical";   // Phishing
-  if (score >= 4) return "high";       // Suspicious
+  if (score >= 8) return "critical";   // Phishing
+  if (score >= 6) return "high";       // Suspicious
   return "low";                        // Safe
 }
 
