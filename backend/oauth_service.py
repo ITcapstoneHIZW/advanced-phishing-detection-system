@@ -2,6 +2,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 import os
+import re
 import base64
 
 SCOPES = [
@@ -132,7 +133,28 @@ def _extract_bodies(payload):
         else:
             plain = top
 
+    # If the email is HTML-only (no plain-text part) — common for newsletters —
+    # derive readable text from the HTML so the analyzer / ML model still has
+    # content to score. An empty plain body would otherwise be a detection blind
+    # spot (an HTML-only phishing email would get a free pass).
+    if not plain and html:
+        plain = _html_to_text(html)
+
     return plain, html
+
+
+def _html_to_text(html):
+    """Strip HTML tags (and script/style blocks) to produce plain text for scoring."""
+    if not html:
+        return ""
+    text = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", html)  # drop script/style content
+    text = re.sub(r"(?s)<[^>]+>", " ", text)                        # remove remaining tags
+    text = re.sub(r"&nbsp;", " ", text)
+    text = re.sub(r"&amp;", "&", text)
+    text = re.sub(r"&lt;", "<", text)
+    text = re.sub(r"&gt;", ">", text)
+    text = re.sub(r"\s+", " ", text).strip()                       # collapse whitespace
+    return text
 
 
 def fetch_emails_oauth(credentials_dict, max_results=10):
