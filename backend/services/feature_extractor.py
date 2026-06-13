@@ -6,7 +6,8 @@ from langdetect import detect, LangDetectException
 # These domains bypass rule-based scoring entirely
 TRUSTED_DOMAINS = [
     # News & Media
-    'nytimes.com', 'washingtonpost.com', 'theguardian.com',
+    'nytimes.com', 'e.newyorktimes.com', 'e.nytimes.com',
+    'washingtonpost.com', 'theguardian.com', 'editorial.theguardian.com',
     'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'bloomberg.com',
     
     # Guardian specific (newsletters)
