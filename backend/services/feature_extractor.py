@@ -5,12 +5,31 @@ from langdetect import detect, LangDetectException
 # ========== TRUSTED DOMAINS ==========
 # These domains bypass rule-based scoring entirely
 TRUSTED_DOMAINS = [
+    # News & Media
     'nytimes.com', 'washingtonpost.com', 'theguardian.com',
     'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'bloomberg.com',
-    'substack.com', 'medium.com', 'github.com', 'stackoverflow.com',
-    'reddit.com', 'linkedin.com', 'spotify.com', 'netflix.com',
-    'amazon.com', 'paypal.com', 'apple.com', 'microsoft.com',
-    'google.com', 'facebook.com', 'twitter.com', 'instagram.com'
+    
+    # Guardian specific (newsletters)
+    'editorial.theguardian.com',  # ← ADD THIS LINE
+    
+    # Newsletter platforms
+    'substack.com', 'medium.com', 'beehiiv.com', 'convertkit.com',
+    
+    # Tech & Social
+    'github.com', 'stackoverflow.com', 'reddit.com', 'linkedin.com',
+    'spotify.com', 'netflix.com', 'amazon.com', 'paypal.com',
+    
+    # Google / Gmail
+    'google.com', 'accounts.google.com', 'gmail.com', 'googlemail.com',
+    
+    # Microsoft / Outlook
+    'microsoft.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
+    'accountprotection.microsoft.com',
+    
+    # Other
+    'apple.com', 'facebook.com', 'twitter.com', 'instagram.com',
+    'whatsapp.com', 'telegram.org', 'slack.com', 'zoom.us', 'dropbox.com',
+    'airbnb.com', 'uber.com', 'doordash.com'
 ]
 
 # ========== URGENT WORDS (Cleaned) ==========
@@ -158,61 +177,69 @@ def calculate_phishing_score(features):
  
 def calculate_combined_score(features, email_text=None, sender_domain=None):
     """
-    Hybrid scorer: combines rule-based scoring with the ML model's prediction.
+    Hybrid scorer: ML model is PRIMARY, rule-based scoring is SECONDARY.
     
-    We take the MAX of the two scores — meaning if either system flags an email
-    as risky, we treat it as risky. This is the cautious choice.
+    For ALL emails, the ML model runs and provides the primary risk score.
+    Rule-based scoring is still calculated (for display/explanation) but does
+    NOT override the ML result.
     
-    Falls back to rules-only if the ML model isn't loaded or fails.
+    Falls back to rules-only if ML model isn't loaded or fails.
     """
     
-    # ========== TRUSTED DOMAINS OVERRIDE ==========
     domain = sender_domain or features.get("sender_domain", "")
-    if domain and domain.lower() in TRUSTED_DOMAINS:
-        return {
-            "score": 0,
-            "verdict": "Safe",
-            "rule_score": 0,
-            "ml_score": None,
-            "used_ml": False
-        }
-    # =============================================
+    is_trusted = domain and domain.lower() in TRUSTED_DOMAINS
     
+    # ========== RULE SCORE (for explanation only) ==========
     rule_result = calculate_phishing_score(features)
     rule_score = rule_result["score"]
+    rule_verdict = rule_result["verdict"]
+    # =======================================================
  
+    # ========== ML SCORE (PRIMARY) ==========
     ml_score_scaled = None
+    ml_used = False
+    
     if email_text:
-        # Lazy import so the rest of feature_extractor still works if
-        # ml_predictor has any issue (joblib missing, etc.)
-        try:
-            from services.ml_predictor import predict_phishing_ml
-            ml_result = predict_phishing_ml(email_text)
-            if ml_result is not None:
-                # ML returns 0-1, scale to match rule scoring's 0-10 range
-                ml_score_scaled = ml_result["risk_score"] * 10
-        except Exception:
-            ml_score_scaled = None
- 
+        # Safety check for invalid email_text
+        if isinstance(email_text, str) and email_text and email_text != '...':
+            try:
+                from services.ml_predictor import predict_phishing_ml
+                ml_result = predict_phishing_ml(email_text)
+                if ml_result is not None:
+                    # ML returns 0-1, scale to 0-10 range
+                    ml_score_scaled = ml_result["risk_score"] * 10
+                    ml_used = True
+            except Exception:
+                ml_score_scaled = None
+    
+    # ========== FINAL SCORE ==========
+    # PRIMARY: Use ML score if available
     if ml_score_scaled is not None:
-        final_score = max(rule_score, ml_score_scaled)
+        final_score = ml_score_scaled
+        used_ml = True
     else:
+        # FALLBACK: Use rule score if ML not available
         final_score = rule_score
- 
+        used_ml = False
+    # ==================================
+    
     final_score = min(round(final_score, 1), 10)
- 
+    
+    # Determine verdict based on final score
     if final_score >= 8:
         verdict = "Phishing"
     elif final_score >= 6:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
- 
+    
     return {
         "score": final_score,
         "verdict": verdict,
-        # Diagnostic fields — handy for the demo, can be logged or shown in UI
+        # Diagnostic fields (for UI/debugging)
         "rule_score": rule_score,
+        "rule_verdict": rule_verdict,
         "ml_score": round(ml_score_scaled, 1) if ml_score_scaled is not None else None,
-        "used_ml": ml_score_scaled is not None,
+        "used_ml": used_ml,
+        "trusted_domain": is_trusted
     }
