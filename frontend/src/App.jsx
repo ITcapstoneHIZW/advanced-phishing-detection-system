@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import TermsPage from "./pages/TermsPage";
 import DashboardPage from "./pages/DashboardPage";
 import QuarantinePage from "./pages/QuarantinePage";
 import EmailDetailsPage from "./pages/EmailDetailsPage";
@@ -85,6 +86,7 @@ function App() {
         {/* Full-screen routes (no sidebar) */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/link-email" element={<ProtectedRoute><LinkEmailPage /></ProtectedRoute>} />
 
         {/* Shell routes */}
