@@ -1,10 +1,7 @@
 # Advanced Phishing Detection System
 
 ##  Project Overview
-AI-powered email security system that analyzes incoming emails using NLP and machine learning to detect and quarantine phishing attempts.
-
-##  Architecture
-[Brief description of your system architecture]
+Machine Learning-powered email security system that analyzes incoming emails using NLP and machine learning to detect and quarantine phishing attempts.
 
 ##  Team Members
 - Member 1 (ML Engineer)
