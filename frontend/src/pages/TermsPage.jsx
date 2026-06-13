@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import I from "../components/Icons";
 import { BrandMark } from "../components/Ui";
 
@@ -120,6 +120,16 @@ function Block({ body }) {
 
 function TermsPage() {
   const navigate = useNavigate();
+
+  // The terms page opens in a new tab from the register checkbox, so the user's
+  // half-filled form is preserved in the original tab. "Return to registration"
+  // simply closes this tab. If the page was opened directly (no opener to close
+  // back to), fall back to navigating to /register.
+  const handleReturn = () => {
+    window.close();
+    // If window.close() didn't work (tab wasn't script-opened), navigate instead.
+    setTimeout(() => navigate("/register"), 100);
+  };
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", padding: "32px 20px" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -128,8 +138,8 @@ function TermsPage() {
             <BrandMark />
             <span style={{ fontWeight: 600 }}>Sentinel</span>
           </div>
-          <button className="btn" data-variant="ghost" data-size="sm" onClick={() => navigate(-1)}>
-            <I.CornerUpLeft size={14} /> Back
+          <button className="btn" data-variant="ghost" data-size="sm" onClick={handleReturn}>
+            <I.CornerUpLeft size={14} /> Return to registration
           </button>
         </div>
 
@@ -152,7 +162,9 @@ function TermsPage() {
           ))}
 
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
-            <Link to="/register" style={{ color: "var(--accent)", fontWeight: 500, fontSize: 14 }}>← Back to registration</Link>
+            <button onClick={handleReturn} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--accent)", fontWeight: 500, fontSize: 14 }}>
+              ← Return to registration
+            </button>
           </div>
         </div>
       </div>
