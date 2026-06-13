@@ -214,8 +214,8 @@ def calculate_combined_score(features, email_text=None, sender_domain=None):
     
     # ========== FINAL SCORE ==========
     if ml_score_scaled is not None:
-    final_score = max(rule_score, ml_score_scaled)  # ← CHANGE THIS LINE
-    used_ml = True
+        final_score = max(rule_score, ml_score_scaled)
+        used_ml = True
     else:
         final_score = rule_score
         used_ml = False
