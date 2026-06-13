@@ -320,7 +320,7 @@ def sync_emails(current_user: User = Depends(get_current_user), db: Session = De
                 if msg_id and msg_id in existing_ids:
                     continue
                 features = extract_features(parsed)
-                scoring = calculate_combined_score(features, email_text=..., sender_domain=features.get("sender_domain"))
+                scoring = calculate_combined_score(features, email_text=((parsed.get("subject", "") or "") + " " + (parsed.get("body", "") or "")), sender_domain=features.get("sender_domain"))
                 quarantined = _should_quarantine(scoring["score"], scoring["verdict"], sens_threshold, sens_mode)
                 new_email = Email(
                     user_id=current_user.id,
