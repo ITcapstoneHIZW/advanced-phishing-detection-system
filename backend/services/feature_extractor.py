@@ -10,7 +10,7 @@ TRUSTED_DOMAINS = [
     'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'bloomberg.com',
     
     # Guardian specific (newsletters)
-    'editorial.theguardian.com',  # ← ADD THIS LINE
+    'editorial.theguardian.com',  
     
     # Newsletter platforms
     'substack.com', 'medium.com', 'beehiiv.com', 'convertkit.com',
@@ -51,29 +51,17 @@ def extract_features(email_data):
     sender = email_data.get("sender", "")
     combined_text = subject + " " + body
  
-    # --- URL Analysis ---
-    urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', body)
-    features["url_count"] = len(urls)
-    features["has_suspicious_url"] = any(
-        word in url.lower() for url in urls 
-        for word in ["login", "verify", "account", "secure", "update", "confirm", "reset", "password", "bank"]
-    )
- 
-    # --- Urgent Language (using cleaned word list) ---
-    features["has_urgent_language"] = any(
-        word in combined_text.lower() for word in URGENT_WORDS
-    )
-    features["urgent_word_count"] = sum(
-        1 for word in URGENT_WORDS if word in combined_text.lower()
-    )
- 
-    # --- Sender Analysis ---
+    # --- Sender Analysis (do this FIRST so we know if trusted) ---
     sender_domain_match = re.findall(r'@([a-zA-Z0-9.-]+)', sender)
     features["sender_domain"] = sender_domain_match[0] if sender_domain_match else "unknown"
     features["is_free_email"] = any(
         domain in features["sender_domain"] 
         for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com"]
     )
+    
+    # ========== CHECK IF SENDER IS TRUSTED (CRITICAL) ==========
+    features["is_trusted_sender"] = features["sender_domain"].lower() in TRUSTED_DOMAINS
+    # ===========================================================
  
     # Check for domain spoofing (e.g. paypaI.com instead of paypal.com)
     spoofed_brands = ["paypal", "microsoft", "google", "apple", "amazon", "netflix", "bank"]
@@ -81,6 +69,27 @@ def extract_features(email_data):
         brand in features["sender_domain"].lower() for brand in spoofed_brands
     ) and not any(
         features["sender_domain"].lower().endswith(f"{brand}.com") for brand in spoofed_brands
+    )
+ 
+    # --- URL Analysis (with trusted sender bypass) ---
+    urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', body)
+    features["url_count"] = len(urls)
+    
+    # Only check suspicious URLs if sender is NOT trusted
+    if not features.get("is_trusted_sender", False):
+        features["has_suspicious_url"] = any(
+            word in url.lower() for url in urls 
+            for word in ["login", "verify", "account", "secure", "update", "confirm", "reset", "password", "bank"]
+        )
+    else:
+        features["has_suspicious_url"] = False  # Trusted domains don't get flagged for URLs
+ 
+    # --- Urgent Language (using cleaned word list) ---
+    features["has_urgent_language"] = any(
+        word in combined_text.lower() for word in URGENT_WORDS
+    )
+    features["urgent_word_count"] = sum(
+        1 for word in URGENT_WORDS if word in combined_text.lower()
     )
  
     # --- Subject Analysis ---
