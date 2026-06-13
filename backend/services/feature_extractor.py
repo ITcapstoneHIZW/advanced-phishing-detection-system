@@ -38,7 +38,7 @@ URGENT_WORDS = [
     "suspended", "unusual activity", "click here", "limited time",
     "expires soon", "action required", "your account has been",
     "unauthorized", "suspicious", "compromised", "locked",
-    "validate", "confirm your", "update your"
+    "validate", "confirm your", "update your" "send me money", "borrow money", "need money"
 ]
 
 
