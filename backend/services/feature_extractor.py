@@ -10,9 +10,6 @@ TRUSTED_DOMAINS = [
     'washingtonpost.com', 'theguardian.com', 'editorial.theguardian.com',
     'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'bloomberg.com',
     
-    # Guardian specific (newsletters)
-    'editorial.theguardian.com',
-    
     # Newsletter platforms
     'substack.com', 'medium.com', 'beehiiv.com', 'convertkit.com',
     
@@ -31,14 +28,15 @@ TRUSTED_DOMAINS = [
     'whatsapp.com', 'telegram.org', 'slack.com', 'zoom.us', 'dropbox.com',
     'airbnb.com', 'uber.com', 'doordash.com'
 ]
+
 # ========== URGENT WORDS (Cleaned) ==========
-# Removed generic words like 'alert', 'prize', 'winner', 'congratulations', 'free', 'risk', 'threat'
 URGENT_WORDS = [
     "urgent", "immediately", "act now", "verify your account",
     "suspended", "unusual activity", "click here", "limited time",
     "expires soon", "action required", "your account has been",
     "unauthorized", "suspicious", "compromised", "locked",
-    "validate", "confirm your", "update your" "send me money", "borrow money", "need money"
+    "validate", "confirm your", "update your",
+    "tight spot", "need help", "send money", "borrow"
 ]
 
 
@@ -63,7 +61,7 @@ def extract_features(email_data):
     # ===========================================================
  
     # Check for domain spoofing (e.g. paypaI.com instead of paypal.com)
-    spoofed_brands = ["paypal", "microsoft", "google", "apple", "amazon", "netflix", "bank"]
+    spoofed_brands = ["paypal", "microsoft", "google", "apple", "amazon", "netflix", "bank", "venmo", "cashapp", "zelle"]
     features["has_spoofed_domain"] = any(
         brand in features["sender_domain"].lower() for brand in spoofed_brands
     ) and not any(
@@ -78,7 +76,8 @@ def extract_features(email_data):
     if not features.get("is_trusted_sender", False):
         features["has_suspicious_url"] = any(
             word in url.lower() for url in urls 
-            for word in ["login", "verify", "account", "secure", "update", "confirm", "reset", "password", "bank"]
+            for word in ["login", "verify", "account", "secure", "update", "confirm", "reset", "password", "bank",
+                         "paypal", "special", "offer", "money", "payment", "transfer", "funds", "pay", "checkout"]
         )
     else:
         features["has_suspicious_url"] = False  # Trusted domains don't get flagged for URLs
