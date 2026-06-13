@@ -135,7 +135,7 @@ function RegisterPage() {
 
                 <label className="row" style={{ alignItems: "flex-start", margin: "14px 0 18px", fontSize: 12, color: "var(--text-secondary)", cursor: "pointer", lineHeight: 1.5 }}>
                   <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
-                  <span>I agree to the <a href="#" style={{ color: "var(--accent)", fontWeight: 500 }}>Acceptable Use Policy</a>.</span>
+                  <span>I agree to the <Link to="/terms" target="_blank" style={{ color: "var(--accent)", fontWeight: 500 }}>Terms and Conditions</Link>.</span>
                 </label>
 
                 <div className="row" style={{ gap: 8 }}>
