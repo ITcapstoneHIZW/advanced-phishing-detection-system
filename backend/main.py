@@ -456,6 +456,7 @@ def delete_email(email_id: int, current_user: User = Depends(get_current_user), 
     audit(db, current_user, "email_deleted", "email", email_id, f"Email permanently deleted: '{subject}'", severity="warning")
     return {"message": "Email deleted successfully"}
 
+# --- Feedback endpoints ---
 @app.post("/emails/{email_id}/feedback")
 def submit_feedback(email_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     email = db.query(Email).filter(Email.id == email_id, Email.user_id == current_user.id).first()
@@ -484,6 +485,98 @@ def submit_feedback(email_id: int, data: dict, current_user: User = Depends(get_
     db.commit()
     audit(db, current_user, "feedback_submitted", "email", email_id, f"Email marked as {verdict} (was {original_verdict}): '{email.subject}'", severity="info")
     return {"message": f"Email marked as {verdict}"}
+
+
+# ========== NEW: FEEDBACK EXPORT FOR ML RETRAINING ==========
+# Add these endpoints for the ML feedback loop
+
+@app.get("/feedback/export")
+def export_feedback(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 1000,
+    only_unused: bool = True
+):
+    """Export user feedback for ML retraining."""
+    query = db.query(UserFeedback).filter(UserFeedback.user_id == current_user.id)
+    
+    if only_unused:
+        query = query.filter(UserFeedback.used_for_retraining == False)
+    
+    feedbacks = query.order_by(UserFeedback.date_submitted.desc()).limit(limit).all()
+    
+    # Get the actual email content for each feedback
+    results = []
+    for fb in feedbacks:
+        email = db.query(Email).filter(Email.id == fb.email_id).first()
+        if email:
+            text_combined = f"{email.subject or ''} {email.body or ''}"
+            label = 1 if fb.feedback == "Phishing" else 0
+            results.append({
+                "id": fb.id,
+                "text_combined": text_combined,
+                "label": label,
+                "original_verdict": fb.original_verdict,
+                "date_submitted": str(fb.date_submitted),
+                "used_for_retraining": fb.used_for_retraining
+            })
+    
+    return {
+        "feedbacks": results,
+        "count": len(results)
+    }
+
+
+@app.post("/feedback/mark-used")
+def mark_feedback_used(
+    feedback_ids: list[int],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark feedback as used for retraining."""
+    db.query(UserFeedback).filter(
+        UserFeedback.id.in_(feedback_ids),
+        UserFeedback.user_id == current_user.id
+    ).update({"used_for_retraining": True}, synchronize_session=False)
+    db.commit()
+    return {"message": f"Marked {len(feedback_ids)} feedback items as used"}
+
+
+@app.get("/feedback/export-csv")
+def export_feedback_csv(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Export user feedback as CSV file for ML retraining."""
+    import csv
+    from io import StringIO
+    from fastapi.responses import Response
+    
+    feedbacks = db.query(UserFeedback).filter(
+        UserFeedback.user_id == current_user.id,
+        UserFeedback.used_for_retraining == False
+    ).all()
+    
+    # Create CSV in memory
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['text_combined', 'label'])
+    
+    for fb in feedbacks:
+        email = db.query(Email).filter(Email.id == fb.email_id).first()
+        if email:
+            text_combined = f"{email.subject or ''} {email.body or ''}"
+            label = 1 if fb.feedback == "Phishing" else 0
+            writer.writerow([text_combined, label])
+    
+    output.seek(0)
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=feedback_data.csv"}
+    )
+# ========== END OF NEW FEEDBACK ENDPOINTS ==========
+
 
 # --- Sensitivity settings ---
 @app.get("/model-info")
