@@ -10,28 +10,26 @@ TRUSTED_DOMAINS = [
     'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'bloomberg.com',
     
     # Guardian specific (newsletters)
-    'editorial.theguardian.com',  
+    'editorial.theguardian.com',
     
     # Newsletter platforms
     'substack.com', 'medium.com', 'beehiiv.com', 'convertkit.com',
     
-    # Tech & Social
+    # Tech & Social (legitimate services, not free email providers)
     'github.com', 'stackoverflow.com', 'reddit.com', 'linkedin.com',
     'spotify.com', 'netflix.com', 'amazon.com', 'paypal.com',
     
-    # Google / Gmail
-    'google.com', 'accounts.google.com', 'gmail.com', 'googlemail.com',
+    # Google SERVICES (not gmail user accounts)
+    'google.com', 'accounts.google.com',
     
-    # Microsoft / Outlook
-    'microsoft.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
-    'accountprotection.microsoft.com',
+    # Microsoft SERVICES (not outlook/hotmail user accounts)
+    'microsoft.com', 'accountprotection.microsoft.com',
     
-    # Other
+    # Other legitimate services
     'apple.com', 'facebook.com', 'twitter.com', 'instagram.com',
     'whatsapp.com', 'telegram.org', 'slack.com', 'zoom.us', 'dropbox.com',
     'airbnb.com', 'uber.com', 'doordash.com'
 ]
-
 # ========== URGENT WORDS (Cleaned) ==========
 # Removed generic words like 'alert', 'prize', 'winner', 'congratulations', 'free', 'risk', 'threat'
 URGENT_WORDS = [
