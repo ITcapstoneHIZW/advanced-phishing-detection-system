@@ -187,12 +187,7 @@ def calculate_phishing_score(features):
 def calculate_combined_score(features, email_text=None, sender_domain=None):
     """
     Hybrid scorer: ML model is PRIMARY, rule-based scoring is SECONDARY.
-    
-    For ALL emails, the ML model runs and provides the primary risk score.
-    Rule-based scoring is still calculated (for display/explanation) but does
-    NOT override the ML result.
-    
-    Falls back to rules-only if ML model isn't loaded or fails.
+    Trusted domains have a lower threshold for being marked Safe.
     """
     
     domain = sender_domain or features.get("sender_domain", "")
@@ -209,32 +204,32 @@ def calculate_combined_score(features, email_text=None, sender_domain=None):
     ml_used = False
     
     if email_text:
-        # Safety check for invalid email_text
         if isinstance(email_text, str) and email_text and email_text != '...':
             try:
                 from services.ml_predictor import predict_phishing_ml
                 ml_result = predict_phishing_ml(email_text)
                 if ml_result is not None:
-                    # ML returns 0-1, scale to 0-10 range
                     ml_score_scaled = ml_result["risk_score"] * 10
                     ml_used = True
             except Exception:
                 ml_score_scaled = None
     
     # ========== FINAL SCORE ==========
-    # PRIMARY: Use ML score if available
     if ml_score_scaled is not None:
         final_score = ml_score_scaled
         used_ml = True
     else:
-        # FALLBACK: Use rule score if ML not available
         final_score = rule_score
         used_ml = False
-    # ==================================
+    
+    # ========== TRUSTED DOMAIN ADJUSTMENT ==========
+    # For trusted domains, if rule_score is 0, cap the final score at 4 (Safe)
+    if is_trusted and rule_score == 0 and ml_score_scaled is not None:
+        final_score = min(final_score, 4.0)  # Cap at 4.0 (Safe threshold)
+    # =============================================
     
     final_score = min(round(final_score, 1), 10)
     
-    # Determine verdict based on final score
     if final_score >= 8:
         verdict = "Phishing"
     elif final_score >= 6:
@@ -245,7 +240,6 @@ def calculate_combined_score(features, email_text=None, sender_domain=None):
     return {
         "score": final_score,
         "verdict": verdict,
-        # Diagnostic fields (for UI/debugging)
         "rule_score": rule_score,
         "rule_verdict": rule_verdict,
         "ml_score": round(ml_score_scaled, 1) if ml_score_scaled is not None else None,
