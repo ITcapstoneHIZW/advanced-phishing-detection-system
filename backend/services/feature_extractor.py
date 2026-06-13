@@ -1,7 +1,29 @@
 import re
 from textblob import TextBlob
 from langdetect import detect, LangDetectException
- 
+
+# ========== TRUSTED DOMAINS ==========
+# These domains bypass rule-based scoring entirely
+TRUSTED_DOMAINS = [
+    'nytimes.com', 'washingtonpost.com', 'theguardian.com',
+    'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'bloomberg.com',
+    'substack.com', 'medium.com', 'github.com', 'stackoverflow.com',
+    'reddit.com', 'linkedin.com', 'spotify.com', 'netflix.com',
+    'amazon.com', 'paypal.com', 'apple.com', 'microsoft.com',
+    'google.com', 'facebook.com', 'twitter.com', 'instagram.com'
+]
+
+# ========== URGENT WORDS (Cleaned) ==========
+# Removed generic words like 'alert', 'prize', 'winner', 'congratulations', 'free', 'risk', 'threat'
+URGENT_WORDS = [
+    "urgent", "immediately", "act now", "verify your account",
+    "suspended", "unusual activity", "click here", "limited time",
+    "expires soon", "action required", "your account has been",
+    "unauthorized", "suspicious", "compromised", "locked",
+    "validate", "confirm your", "update your"
+]
+
+
 def extract_features(email_data):
     features = {}
     
@@ -18,25 +40,17 @@ def extract_features(email_data):
         for word in ["login", "verify", "account", "secure", "update", "confirm", "reset", "password", "bank"]
     )
  
-    # --- Urgent Language ---
-    urgent_words = [
-        "urgent", "immediately", "act now", "verify your account",
-        "suspended", "unusual activity", "click here", "limited time",
-        "expires soon", "action required", "your account has been",
-        "unauthorized", "suspicious", "compromised", "locked",
-        "validate", "confirm your", "update your", "prize", "winner",
-        "congratulations", "free", "risk", "threat", "alert"
-    ]
+    # --- Urgent Language (using cleaned word list) ---
     features["has_urgent_language"] = any(
-        word in combined_text.lower() for word in urgent_words
+        word in combined_text.lower() for word in URGENT_WORDS
     )
     features["urgent_word_count"] = sum(
-        1 for word in urgent_words if word in combined_text.lower()
+        1 for word in URGENT_WORDS if word in combined_text.lower()
     )
  
     # --- Sender Analysis ---
-    sender_domain = re.findall(r'@([a-zA-Z0-9.-]+)', sender)
-    features["sender_domain"] = sender_domain[0] if sender_domain else "unknown"
+    sender_domain_match = re.findall(r'@([a-zA-Z0-9.-]+)', sender)
+    features["sender_domain"] = sender_domain_match[0] if sender_domain_match else "unknown"
     features["is_free_email"] = any(
         domain in features["sender_domain"] 
         for domain in ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com"]
@@ -53,7 +67,7 @@ def extract_features(email_data):
     # --- Subject Analysis ---
     features["subject_has_re_fwd"] = subject.lower().startswith(("re:", "fwd:"))
     features["subject_length"] = len(subject)
-    features["subject_has_urgent"] = any(word in subject.lower() for word in urgent_words)
+    features["subject_has_urgent"] = any(word in subject.lower() for word in URGENT_WORDS)
  
     # --- NLP Sentiment Analysis ---
     blob = TextBlob(combined_text)
@@ -87,7 +101,14 @@ def extract_features(email_data):
  
  
 def calculate_phishing_score(features):
-    """Rule-based phishing score (0-10). Kept as the fallback if ML isn't available."""
+    """Rule-based phishing score (0-10). Falls back to 0/Safe for trusted domains."""
+    
+    # ========== TRUSTED DOMAINS OVERRIDE ==========
+    sender_domain = features.get("sender_domain", "")
+    if sender_domain and sender_domain.lower() in TRUSTED_DOMAINS:
+        return {"score": 0, "verdict": "Safe"}
+    # =============================================
+    
     score = 0
  
     # URL signals
@@ -135,20 +156,28 @@ def calculate_phishing_score(features):
     return {"score": score, "verdict": verdict}
  
  
-def calculate_combined_score(features, email_text=None):
+def calculate_combined_score(features, email_text=None, sender_domain=None):
     """
     Hybrid scorer: combines rule-based scoring with the ML model's prediction.
- 
+    
     We take the MAX of the two scores — meaning if either system flags an email
-    as risky, we treat it as risky. This is the cautious choice and is easy to
-    defend ("we use ML to catch what rules miss, and rules to catch what ML
-    misses").
- 
+    as risky, we treat it as risky. This is the cautious choice.
+    
     Falls back to rules-only if the ML model isn't loaded or fails.
- 
-    Returns the same shape as calculate_phishing_score() plus a few diagnostic
-    fields so we can see how each signal contributed.
     """
+    
+    # ========== TRUSTED DOMAINS OVERRIDE ==========
+    domain = sender_domain or features.get("sender_domain", "")
+    if domain and domain.lower() in TRUSTED_DOMAINS:
+        return {
+            "score": 0,
+            "verdict": "Safe",
+            "rule_score": 0,
+            "ml_score": None,
+            "used_ml": False
+        }
+    # =============================================
+    
     rule_result = calculate_phishing_score(features)
     rule_score = rule_result["score"]
  
