@@ -231,7 +231,7 @@ def calculate_combined_score(features, email_text=None, sender_domain=None):
     
     if final_score >= 7:
         verdict = "Phishing"
-    elif final_score >= 6:
+    elif final_score >= 5.4:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
