@@ -85,9 +85,18 @@ def extract_features(email_data):
     else:
         features["has_suspicious_url"] = False  # Trusted domains don't get flagged for URLs
  
-    # ========== SUSPICIOUS EMAIL ADDRESS DETECTION IN BODY (IMPROVED) ==========
-    # Look for email addresses that impersonate legitimate brands
+    # ========== SUSPICIOUS EMAIL ADDRESS DETECTION IN BODY (AGGRESSIVE) ==========
+    # Look for email addresses - standard pattern
     email_in_body = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', body)
+    
+    # Also catch emails with multiple dots in domain (e.g., paypal.com.security@example.com)
+    complex_email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    complex_emails = re.findall(complex_email_pattern, body)
+    email_in_body.extend(complex_emails)
+    
+    # Remove duplicates
+    email_in_body = list(set(email_in_body))
+    
     features["email_count_in_body"] = len(email_in_body)
     features["suspicious_email_in_body"] = False
     
@@ -96,46 +105,34 @@ def extract_features(email_data):
                       "wellsfargo", "secure", "verify", "account", "login", 
                       "update", "security", "netflix", "google", "facebook"]
     
+    # Suspicious domains (placeholder domains often used in phishing)
+    suspicious_domains = ["example.com"]
+    
     for email_addr in email_in_body:
         email_lower = email_addr.lower()
         domain_part = email_addr.split('@')[1] if '@' in email_addr else ""
         
+        # Check for brand impersonation
         for brand in brand_keywords:
             if brand in email_lower:
-                # Check if it's a legitimate brand email
-                # Legitimate: brand@brand.com, brand@brand.co.uk
-                # Suspicious: brand.something@something.com, something@brand-security.com
-                is_legitimate = False
-                
-                # Case 1: Brand is in the domain part AND domain ends with brand.com
-                if brand in domain_part:
-                    # Check if domain is exactly brand.com or brand.co.uk etc.
-                    if domain_part.startswith(brand) and ('.' + brand) in domain_part:
-                        is_legitimate = True
-                    # Also check for common legitimate patterns
-                    legitimate_patterns = [f"{brand}.com", f"{brand}.co.uk", f"@{brand}"]
-                    for pattern in legitimate_patterns:
-                        if pattern in email_lower:
-                            is_legitimate = True
-                            break
-                
-                # Case 2: Brand appears but in suspicious way (e.g., paypal.com.security-verify)
-                if not is_legitimate and brand in email_lower:
+                # Legitimate: brand@brand.com - don't flag
+                if f"@{brand}." in email_lower:
+                    pass  # This is likely legitimate
+                else:
                     features["suspicious_email_in_body"] = True
                     features["suspicious_email_detail"] = email_addr
                     break
-            if features["suspicious_email_in_body"]:
-                break
+        
+        # Check for suspicious domain
+        if not features["suspicious_email_in_body"]:
+            for susp_domain in suspicious_domains:
+                if susp_domain in domain_part:
+                    features["suspicious_email_in_body"] = True
+                    features["suspicious_email_detail"] = email_addr
+                    break
+        
         if features["suspicious_email_in_body"]:
             break
-    
-    # Also check for @example.com (common placeholder in phishing)
-    if not features["suspicious_email_in_body"]:
-        for email_addr in email_in_body:
-            if 'example.com' in email_addr.lower():
-                features["suspicious_email_in_body"] = True
-                features["suspicious_email_detail"] = email_addr
-                break
     # =========================================================================
  
     # --- Urgent Language (using cleaned word list) ---
