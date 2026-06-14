@@ -30,7 +30,6 @@ TRUSTED_DOMAINS = [
 ]
 
 # ========== URGENT WORDS (Cleaned) ==========
-# FIX 1: Added money request phrases
 URGENT_WORDS = [
     "urgent", "immediately", "act now", "verify your account",
     "suspended", "unusual activity", "click here", "limited time",
@@ -86,23 +85,57 @@ def extract_features(email_data):
     else:
         features["has_suspicious_url"] = False  # Trusted domains don't get flagged for URLs
  
-    # ========== FIX 2: Detect suspicious email addresses in body ==========
+    # ========== SUSPICIOUS EMAIL ADDRESS DETECTION IN BODY (IMPROVED) ==========
     # Look for email addresses that impersonate legitimate brands
     email_in_body = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', body)
     features["email_count_in_body"] = len(email_in_body)
     features["suspicious_email_in_body"] = False
     
-    brand_keywords = ["paypal", "amazon", "microsoft", "apple", "bank", "chase", "wells fargo", 
-                      "secure", "verify", "account", "login", "update", "security"]
+    # Brand keywords to look for (common phishing targets)
+    brand_keywords = ["paypal", "amazon", "microsoft", "apple", "bank", "chase", 
+                      "wellsfargo", "secure", "verify", "account", "login", 
+                      "update", "security", "netflix", "google", "facebook"]
     
     for email_addr in email_in_body:
+        email_lower = email_addr.lower()
         domain_part = email_addr.split('@')[1] if '@' in email_addr else ""
+        
         for brand in brand_keywords:
-            if brand in email_addr.lower():
-                # Legitimate brand email would have brand in domain, not just anywhere
-                if brand not in domain_part.lower():
+            if brand in email_lower:
+                # Check if it's a legitimate brand email
+                # Legitimate: brand@brand.com, brand@brand.co.uk
+                # Suspicious: brand.something@something.com, something@brand-security.com
+                is_legitimate = False
+                
+                # Case 1: Brand is in the domain part AND domain ends with brand.com
+                if brand in domain_part:
+                    # Check if domain is exactly brand.com or brand.co.uk etc.
+                    if domain_part.startswith(brand) and ('.' + brand) in domain_part:
+                        is_legitimate = True
+                    # Also check for common legitimate patterns
+                    legitimate_patterns = [f"{brand}.com", f"{brand}.co.uk", f"@{brand}"]
+                    for pattern in legitimate_patterns:
+                        if pattern in email_lower:
+                            is_legitimate = True
+                            break
+                
+                # Case 2: Brand appears but in suspicious way (e.g., paypal.com.security-verify)
+                if not is_legitimate and brand in email_lower:
                     features["suspicious_email_in_body"] = True
+                    features["suspicious_email_detail"] = email_addr
                     break
+            if features["suspicious_email_in_body"]:
+                break
+        if features["suspicious_email_in_body"]:
+            break
+    
+    # Also check for @example.com (common placeholder in phishing)
+    if not features["suspicious_email_in_body"]:
+        for email_addr in email_in_body:
+            if 'example.com' in email_addr.lower():
+                features["suspicious_email_in_body"] = True
+                features["suspicious_email_detail"] = email_addr
+                break
     # =========================================================================
  
     # --- Urgent Language (using cleaned word list) ---
@@ -178,10 +211,9 @@ def calculate_phishing_score(features):
     if features["is_free_email"]:
         score += 0.5
  
-    # ========== FIX 3: Add score for suspicious email in body ==========
+    # Suspicious email in body (fake PayPal address, etc.)
     if features.get("suspicious_email_in_body", False):
         score += 3.0
-    # ===================================================================
  
     # NLP signals
     if features["is_negative_sentiment"]:
