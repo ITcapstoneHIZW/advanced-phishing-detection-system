@@ -173,9 +173,9 @@ def calculate_phishing_score(features):
     # Cap at 10
     score = min(round(score, 1), 10)
  
-    if score >= 7:
+    if score >= 8:
         verdict = "Phishing"
-    elif score >= 4:
+    elif score >= 6:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
@@ -224,14 +224,14 @@ def calculate_combined_score(features, email_text=None, sender_domain=None):
     # ========== TRUSTED DOMAIN ADJUSTMENT ==========
     # For trusted domains, if rule_score is 0, cap the final score at 4 (Safe)
     if is_trusted and rule_score == 0 and ml_score_scaled is not None:
-        final_score = min(final_score, 4.0)  # Cap at 4.0 (Safe threshold)
+        final_score = min(final_score, 4.0)  # Cap well inside Safe band (Safe < 6)
     # =============================================
     
     final_score = min(round(final_score, 1), 10)
     
     if final_score >= 7:
         verdict = "Phishing"
-    elif final_score >= 4:
+    elif final_score >= 6:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
