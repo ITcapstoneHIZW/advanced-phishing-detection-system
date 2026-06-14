@@ -175,7 +175,7 @@ def calculate_phishing_score(features):
  
     if score >= 7:
         verdict = "Phishing"
-    elif score >= 6:
+    elif score >= 5.4:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
