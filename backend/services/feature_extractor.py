@@ -30,13 +30,16 @@ TRUSTED_DOMAINS = [
 ]
 
 # ========== URGENT WORDS (Cleaned) ==========
+# FIX 1: Added money request phrases
 URGENT_WORDS = [
     "urgent", "immediately", "act now", "verify your account",
     "suspended", "unusual activity", "click here", "limited time",
     "expires soon", "action required", "your account has been",
     "unauthorized", "suspicious", "compromised", "locked",
     "validate", "confirm your", "update your",
-    "tight spot", "need help", "send money", "borrow"
+    "tight spot", "need help", "send money", "borrow",
+    "send me", "need cash", "lend me", "borrow money",
+    "wire transfer", "money request", "cash"
 ]
 
 
@@ -82,6 +85,25 @@ def extract_features(email_data):
         )
     else:
         features["has_suspicious_url"] = False  # Trusted domains don't get flagged for URLs
+ 
+    # ========== FIX 2: Detect suspicious email addresses in body ==========
+    # Look for email addresses that impersonate legitimate brands
+    email_in_body = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', body)
+    features["email_count_in_body"] = len(email_in_body)
+    features["suspicious_email_in_body"] = False
+    
+    brand_keywords = ["paypal", "amazon", "microsoft", "apple", "bank", "chase", "wells fargo", 
+                      "secure", "verify", "account", "login", "update", "security"]
+    
+    for email_addr in email_in_body:
+        domain_part = email_addr.split('@')[1] if '@' in email_addr else ""
+        for brand in brand_keywords:
+            if brand in email_addr.lower():
+                # Legitimate brand email would have brand in domain, not just anywhere
+                if brand not in domain_part.lower():
+                    features["suspicious_email_in_body"] = True
+                    break
+    # =========================================================================
  
     # --- Urgent Language (using cleaned word list) ---
     features["has_urgent_language"] = any(
@@ -156,6 +178,11 @@ def calculate_phishing_score(features):
     if features["is_free_email"]:
         score += 0.5
  
+    # ========== FIX 3: Add score for suspicious email in body ==========
+    if features.get("suspicious_email_in_body", False):
+        score += 3.0
+    # ===================================================================
+ 
     # NLP signals
     if features["is_negative_sentiment"]:
         score += 0.5
@@ -175,7 +202,7 @@ def calculate_phishing_score(features):
  
     if score >= 7:
         verdict = "Phishing"
-    elif score >= 5.4:
+    elif score >= 4:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
@@ -224,14 +251,14 @@ def calculate_combined_score(features, email_text=None, sender_domain=None):
     # ========== TRUSTED DOMAIN ADJUSTMENT ==========
     # For trusted domains, if rule_score is 0, cap the final score at 4 (Safe)
     if is_trusted and rule_score == 0 and ml_score_scaled is not None:
-        final_score = min(final_score, 4.0)  # Cap well inside Safe band (Safe < 6)
+        final_score = min(final_score, 4.0)  # Cap at 4.0 (Safe threshold)
     # =============================================
     
     final_score = min(round(final_score, 1), 10)
     
-    if final_score >= 7:
+    if final_score >= 8:
         verdict = "Phishing"
-    elif final_score >= 5.4:
+    elif final_score >= 6:
         verdict = "Suspicious"
     else:
         verdict = "Safe"
