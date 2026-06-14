@@ -173,7 +173,7 @@ def calculate_phishing_score(features):
     # Cap at 10
     score = min(round(score, 1), 10)
  
-    if score >= 8:
+    if score >= 7:
         verdict = "Phishing"
     elif score >= 6:
         verdict = "Suspicious"
