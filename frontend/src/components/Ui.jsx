@@ -6,12 +6,12 @@ const I = Icons;
 // Shared building blocks
 
 // === Severity helpers ===
-// 3-band verdict system: Safe (< 4), Suspicious (4-6.9), Phishing (>= 7).
+// 3-band verdict system: Safe (< 5.4), Suspicious (5.4-6.9), Phishing (>= 7).
 // Mapped to existing severity tones for colour: Safe=low (green),
 // Suspicious=high (orange), Phishing=critical (red).
 function riskLevel(score) {
-  if (score >= 8) return "critical";   // Phishing
-  if (score >= 6) return "high";       // Suspicious
+  if (score >= 7) return "critical";   // Phishing
+  if (score >= 5.4) return "high";       // Suspicious
   return "low";                        // Safe
 }
 function riskColor(score) {
